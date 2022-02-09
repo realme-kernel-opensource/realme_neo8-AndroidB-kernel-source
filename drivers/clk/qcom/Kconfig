@@ -658,4 +658,13 @@ config SM_TCSRCC_CHORA
 	  Say Y if you want to support miscellaneous top-level clocks
 	  such as for the PHY references.
 
+config SM_GCC_KHAJE
+	tristate "KHAJE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  on KHAJE devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.
+
 endif
