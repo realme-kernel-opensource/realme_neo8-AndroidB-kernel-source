@@ -694,4 +694,13 @@ config SM_LPASS_AUDIOCC_KHAJE
 	  Say Y if you want to use LPASS AUDIOCC and AONCC clocks required
 	  to support audio devices and its functionalities.
 
+config SM_DEBUGCC_KHAJE
+	tristate "KHAJE Debug Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the debug clock controller on Qualcomm Technologies, Inc
+	 KHAJE devices.
+	 Say Y if you want to support the debug clocks such as
+	 clock measurement functionality.
+
 endif
