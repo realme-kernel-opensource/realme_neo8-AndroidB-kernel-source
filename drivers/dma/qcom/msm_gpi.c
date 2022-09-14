@@ -3454,9 +3454,10 @@ static int gpi_pause(struct dma_chan *chan)
 {
 	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
 	struct gpii *gpii = gpii_chan->gpii;
-	int idx = 0;
+	int i, ret, idx = 0;
 	u32 offset1, offset2, type1, type2;
 	struct gpi_ring *ev_ring = gpii->ev_ring;
+	struct msm_gpi_ctrl *gpi_ctrl = chan->private;
 	phys_addr_t cntxt_rp, local_rp;
 	void *rp, *rp1;
 	union gpi_event *gpi_event;
@@ -3515,6 +3516,42 @@ static int gpi_pause(struct dma_chan *chan)
 		rp1 += ev_ring->el_size;
 		if (rp1  >= (ev_ring->base + ev_ring->len))
 			rp1 = ev_ring->base;
+	}
+
+	if (gpi_ctrl->cmd == MSM_GPI_DEEP_SLEEP_INIT) {
+		GPII_INFO(gpii, gpii_chan->chid, "deep sleep config\n");
+		/* Resetting the channels */
+		for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
+			ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_RESET);
+			if (ret) {
+				GPII_ERR(gpii, gpii->gpii_chan[i].chid,
+					 "Error resetting chan, ret:%d\n", ret);
+				mutex_unlock(&gpii->ctrl_lock);
+				return -ECONNRESET;
+			}
+		}
+
+		/* Dealloc the channels */
+		for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
+			ret = gpi_reset_chan(gpii_chan, GPI_CH_CMD_DE_ALLOC);
+			if (ret) {
+				GPII_ERR(gpii, gpii->gpii_chan[i].chid,
+					 "Error chan deallocating, ret:%d\n", ret);
+				mutex_unlock(&gpii->ctrl_lock);
+				return -ECONNRESET;
+			}
+		}
+
+		/* Dealloc Event Ring */
+		ret = gpi_send_cmd(gpii, NULL, GPI_EV_CMD_DEALLOC);
+		if (ret) {
+			GPII_ERR(gpii, GPI_DBG_COMMON, "error with cmd:%s ret:%d\n",
+				 TO_GPI_CMD_STR(GPI_EV_CMD_DEALLOC), ret);
+			mutex_unlock(&gpii->ctrl_lock);
+			return ret;
+		}
 	}
 
 	if (gpii->dual_ee_sync_flag) {
