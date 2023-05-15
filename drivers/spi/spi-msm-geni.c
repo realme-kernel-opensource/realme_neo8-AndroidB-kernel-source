@@ -2134,7 +2134,7 @@ static int spi_geni_mas_setup(struct spi_controller *spi)
 		(geni_read_reg(mas->base, GENI_IF_DISABLE_RO) &
 					FIFO_IF_DISABLE);
 
-	if (mas->gsi_mode) {
+	if (mas->gsi_mode && !mas->is_deep_sleep) {
 		SPI_LOG_DBG(mas->ipc, false, mas->dev, "%s:GSI mode\n", __func__);
 		mas->tx = dma_request_slave_channel(mas->dev, "tx");
 		if (IS_ERR_OR_NULL(mas->tx)) {
@@ -2210,6 +2210,9 @@ static int spi_geni_mas_setup(struct spi_controller *spi)
 
 	mas->geni_init_cfg_revision = geni_read_reg(mas->base, GENI_INIT_CFG_REVISION);
 setup_ipc:
+	/* we should avoid reallocation of ipc context during deepsleep */
+	if (!mas->ipc)
+		mas->ipc = ipc_log_context_create(4, dev_name(mas->dev), 0);
 	dev_info(mas->dev, "tx_fifo %d rx_fifo %d tx_width %d\n",
 		mas->tx_fifo_depth, mas->rx_fifo_depth,
 		mas->tx_fifo_width);
@@ -2226,31 +2229,36 @@ setup_ipc:
 	if (mas->is_le_vm)
 		return ret;
 
-	hw_ver = geni_se_get_qup_hw_version(&mas->spi_rsc);
-	if (unlikely(!hw_ver)) {
-		dev_err(mas->dev, "%s:Err getting HW version %d\n", __func__, hw_ver);
-		return -ENXIO;
+	if (!mas->is_deep_sleep) {
+		hw_ver = geni_se_get_qup_hw_version(&mas->spi_rsc);
+		if (hw_ver)
+			dev_err(mas->dev, "%s:Err getting HW version %d\n",
+							__func__, hw_ver);
+		else {
+			geni_se_common_get_major_minor_num(hw_ver, &major, &minor, &step);
+
+			mas->ver_info.hw_major_ver = major;
+			mas->ver_info.hw_minor_ver = minor;
+			mas->ver_info.hw_step_ver = step;
+			mas->ver_info.m_fw_ver = geni_se_common_get_m_fw(mas->base);
+			mas->ver_info.s_fw_ver = geni_se_common_get_s_fw(mas->base);
+
+			if ((major == 1) && (minor == 0))
+				mas->oversampling = 2;
+			SPI_LOG_DBG(mas->ipc, false, mas->dev,
+				    "%s:Major:%d Minor:%d os%d FW Ver: %d\n", __func__,
+				    major, minor, mas->oversampling, mas->ver_info.s_fw_ver);
+		}
 	}
 
-	geni_se_common_get_major_minor_num(hw_ver, &major, &minor, &step);
-
-	mas->ver_info.hw_major_ver = major;
-	mas->ver_info.hw_minor_ver = minor;
-	mas->ver_info.hw_step_ver = step;
-	mas->ver_info.m_fw_ver = geni_se_common_get_m_fw(mas->base);
-	mas->ver_info.s_fw_ver = geni_se_common_get_s_fw(mas->base);
-
-	if (major == 1 && minor == 0)
-		mas->oversampling = 2;
-
-	SPI_LOG_DBG(mas->ipc, false, mas->dev, "%s:Major:%d Minor:%d os%d FW Ver: %d\n",
-		    __func__, major, minor, mas->oversampling, mas->ver_info.s_fw_ver);
 	if (mas->set_miso_sampling)
 		spi_geni_set_sampling_rate(mas, major, minor);
 
 	if (mas->dis_autosuspend)
 		SPI_LOG_DBG(mas->ipc, false, mas->dev,
 				"Auto Suspend is disabled\n");
+	mas->is_deep_sleep = false;
+
 	return ret;
 }
 
@@ -3568,6 +3576,19 @@ exit_rt_resume:
 	/* Added 10 us delay to settle the write of the register as per HW team recommendation */
 	udelay(10);
 
+	/* SPI Geni setup will happen for SPI Master/Slave after deep sleep exit */
+	if (geni_mas->is_deep_sleep && !geni_mas->setup) {
+		ret = spi_geni_mas_setup(spi);
+		if (ret) {
+			SPI_LOG_ERR(geni_mas->ipc, false, geni_mas->dev,
+				    "%s: Error %d deep sleep mas setup\n",
+				    __func__, ret);
+			return ret;
+		}
+	}
+	if (geni_mas->gsi_mode)
+		ret = spi_geni_gpi_pause_resume(geni_mas, false);
+
 	enable_irq(geni_mas->irq);
 
 	if (geni_mas->gsi_mode)
@@ -3619,8 +3640,14 @@ static int spi_geni_suspend(struct device *dev)
 
 #ifdef CONFIG_DEEPSLEEP
 	if (pm_suspend_target_state == PM_SUSPEND_MEM) {
-		SPI_LOG_ERR(geni_mas->ipc, true, dev, "%s:DEEP SLEEP EXIT", __func__);
+		SPI_LOG_ERR(geni_mas->ipc, true, dev, "%s:DEEP SLEEP ENTRY", __func__);
 		geni_mas->is_deep_sleep = true;
+
+		/* for dma/fifo mode, master setup config rquired */
+		if (!geni_mas->gsi_mode) {
+			geni_mas->setup = false;
+			geni_mas->slave_setup = false;
+		}
 	}
 #endif
 
