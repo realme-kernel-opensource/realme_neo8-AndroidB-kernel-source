@@ -51,6 +51,7 @@
 #include "../../qcom-dma-iommu-generic.h"
 #include "../../qcom-io-pgtable-alloc.h"
 #include <linux/qcom-iommu-util.h>
+#include <linux/suspend.h>
 
 #define CREATE_TRACE_POINTS
 #include "arm-smmu-trace.h"
@@ -3770,7 +3771,7 @@ static int __maybe_unused arm_smmu_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
+static int __maybe_unused arm_smmu_pm_resume_common(struct device *dev)
 {
 	int ret;
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
@@ -3796,24 +3797,6 @@ static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 	arm_smmu_device_reset(smmu);
 	return ret;
 }
-
-static int __maybe_unused arm_smmu_pm_suspend(struct device *dev)
-{
-	int ret = 0;
-	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
-
-	if (pm_runtime_suspended(dev))
-		goto clk_unprepare;
-
-	ret = arm_smmu_runtime_suspend(dev);
-	if (ret)
-		return ret;
-
-clk_unprepare:
-	clk_bulk_unprepare(smmu->num_clks, smmu->clks);
-	return ret;
-}
-
 
 static int arm_smmu_pm_prepare(struct device *dev)
 {
@@ -3865,7 +3848,7 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 		smmu_domain->pgtbl_ops = pgtbl_ops;
 		arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
 	}
-	arm_smmu_pm_resume(dev);
+	arm_smmu_pm_resume_common(dev);
 	ret = arm_smmu_runtime_suspend(dev);
 	if (ret) {
 		dev_err(dev, "Failed to suspend\n");
@@ -3904,6 +3887,34 @@ static int __maybe_unused arm_smmu_pm_freeze_late(struct device *dev)
 	}
 	arm_smmu_power_off(smmu, smmu->pwr);
 	return 0;
+}
+
+static int __maybe_unused arm_smmu_pm_suspend(struct device *dev)
+{
+	int ret = 0;
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	if (pm_suspend_target_state == PM_SUSPEND_MEM)
+		return arm_smmu_pm_freeze_late(dev);
+
+	if (pm_runtime_suspended(dev))
+		goto clk_unprepare;
+
+	ret = arm_smmu_runtime_suspend(dev);
+	if (ret)
+		return ret;
+
+clk_unprepare:
+	clk_bulk_unprepare(smmu->num_clks, smmu->clks);
+	return ret;
+}
+
+static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
+{
+	if (pm_suspend_target_state == PM_SUSPEND_MEM)
+		return arm_smmu_pm_restore_early(dev);
+	else
+		return arm_smmu_pm_resume_common(dev);
 }
 
 static const struct dev_pm_ops arm_smmu_pm_ops = {
