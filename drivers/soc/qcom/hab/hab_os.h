@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 #ifndef __HAB_OS_H
 #define __HAB_OS_H
@@ -65,5 +65,11 @@ static inline unsigned long long msm_timer_get_sclk_ticks(void)
 	return 0;
 }
 #endif
+
+size_t hab_sgl_copy_buffer(struct scatterlist *sgl, void *buf,
+		      size_t buflen, off_t skip, bool to_buffer);
+void hab_sgl_free(struct scatterlist *sgl);
+struct scatterlist *hab_sgl_alloc_merge(unsigned long long length, gfp_t gfp,
+			      unsigned int *nent_p);
 
 #endif /*__HAB_OS_H*/
