@@ -3803,6 +3803,10 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 		}
 	}
 
+	/* Prepare SSPHY for suspend */
+	dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
+					DWC3_GUSB3PIPECTL_SUSPHY, 1);
+
 	/* Read USB_STS register to get UTMI Suspend status */
 	reg = dwc3_msm_read_reg(mdwc->base, USB_STS_REG);
 
