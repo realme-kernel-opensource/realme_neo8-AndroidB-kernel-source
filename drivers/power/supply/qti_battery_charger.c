@@ -22,6 +22,10 @@
 #include <linux/soc/qcom/qti_pmic_glink.h>
 #include <linux/soc/qcom/battery_charger.h>
 #include <linux/soc/qcom/panel_event_notifier.h>
+#ifdef CONFIG_QTI_CHARGER_NFC_VREG
+#include "qti_charger_boost_lib.h"
+#include <linux/kernel.h>
+#endif
 
 #define MSG_OWNER_BC			32778
 #define MSG_TYPE_REQ_RESP		1
@@ -279,6 +283,9 @@ struct battery_chg_dev {
 	bool				initialized;
 	bool				notify_en;
 	bool				error_prop;
+#ifdef CONFIG_QTI_CHARGER_NFC_VREG
+	struct bharger_regulator	nfc_vreg;
+#endif
 };
 
 static const int battery_prop_map[BATT_PROP_MAX] = {
@@ -736,6 +743,11 @@ static void handle_message(struct battery_chg_dev *bcdev, void *data,
 				len);
 		}
 		break;
+#ifdef CONFIG_QTI_CHARGER_NFC_VREG
+	case BC_CHG_CTRL_EN_W_BOOST:
+		ack_set = true;
+		break;
+#endif
 	default:
 		pr_err("Unknown opcode: %u\n", resp_msg->hdr.opcode);
 		break;
@@ -2522,6 +2534,38 @@ static const struct thermal_cooling_device_ops battery_tcd_ops = {
 	.set_cur_state = battery_chg_set_cur_charge_cntl_limit,
 };
 
+#ifdef CONFIG_QTI_CHARGER_NFC_VREG
+int nfc_regulator_en(struct bharger_regulator *vreg, bool enable)
+{
+	struct battery_chg_dev *bcdev;
+	struct battery_enable_w_boost_req_msg req_msg = { { 0 } };
+	int uv;
+
+	bcdev = container_of(vreg, struct battery_chg_dev, nfc_vreg);
+	req_msg.client = BOOST_NFC;
+	req_msg.hdr.owner = MSG_OWNER_BC;
+	req_msg.hdr.type = MSG_TYPE_REQ_RESP;
+	req_msg.hdr.opcode = BC_CHG_CTRL_EN_W_BOOST;
+
+	uv = vreg->min_uv;
+	if (vreg->min_uv < 0 && enable)
+		uv = DEFAULT_NFC_MIN_VOLTAGE;
+	else if (!enable)
+		uv = 0;
+	req_msg.boost_microvolt = uv;
+
+	if (enable) {
+		req_msg.enable = BOOST_ENABLE;
+		req_msg.mode = PWM_FF_MODE;
+	} else {
+		req_msg.enable = BOOST_DISABLE;
+		req_msg.mode = OFF_MODE;
+	}
+
+	return battery_chg_write(bcdev, &req_msg, sizeof(req_msg), BC_WAIT_TIME_MS);
+}
+#endif
+
 static int battery_chg_probe(struct platform_device *pdev)
 {
 	struct battery_chg_dev *bcdev;
@@ -2623,6 +2667,14 @@ static int battery_chg_probe(struct platform_device *pdev)
 		bcdev->battery_class.class_groups = battery_class_pmw6100_groups;
 	else
 		bcdev->battery_class.class_groups = battery_class_groups;
+
+#ifdef CONFIG_QTI_CHARGER_NFC_VREG
+	rc = nfc_init_regulator(bcdev->dev, &bcdev->nfc_vreg);
+	if (rc < 0) {
+		dev_err(bcdev->dev, "Couldn't initialize nfc regulator rc=%d\n", rc);
+		goto error;
+	}
+#endif
 
 	rc = class_register(&bcdev->battery_class);
 	if (rc < 0) {

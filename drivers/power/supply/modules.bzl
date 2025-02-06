@@ -6,6 +6,8 @@ def register_modules(registry):
         srcs = [
             # do not sort
             "drivers/power/supply/qti_battery_charger.c",
+            "drivers/power/supply/qti_charger_boost_lib.c",
+            "drivers/power/supply/qti_charger_boost_lib.h",
         ],
         deps = [
             # do not sort
@@ -30,5 +32,6 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_msgq",
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
+            "drivers/regulator/debug-regulator",
         ],
     )
