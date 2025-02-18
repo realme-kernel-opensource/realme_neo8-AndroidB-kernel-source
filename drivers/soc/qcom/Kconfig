@@ -1190,4 +1190,14 @@ config QCOM_LPM_MONITOR
 	  the interface, it sends an indication to the subsystem via the QMI framework and
 	  then waits for the subsystem to return the data of the last ON/OFF timestamps
 	  for each clock.
+
+config QTI_HW_KEY_MANAGER_V1
+	tristate "Enable QTI Hardware Key Manager v1 for storage encryption"
+	default n
+	help
+	 Say 'Y' to enable the hardware key manager v1 driver used to operate
+	 and access key manager hardware block. This is used to interface with
+	 HWKM hardware to perform key operations from the kernel which will
+	 be used for storage encryption.
+
 endmenu
