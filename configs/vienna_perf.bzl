@@ -53,6 +53,7 @@ vienna_perf_config = {
     "CONFIG_MODULE_SIG_ALL": "n",
     "CONFIG_MSM_BOOT_STATS": "m",
     "CONFIG_MSM_GPI_DMA": "m",
+    "CONFIG_MSM_POWER_STATE": "m",
     "CONFIG_MSM_QMP": "m",
     "CONFIG_MSM_RDBG": "m",
     "CONFIG_NL80211_TESTMODE": "y",
