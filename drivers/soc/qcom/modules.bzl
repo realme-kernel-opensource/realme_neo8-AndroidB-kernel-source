@@ -646,6 +646,20 @@ def register_modules(registry):
     )
 
     registry.register(
+        name = "drivers/soc/qcom/power_state",
+        out = "power_state.ko",
+        config = "CONFIG_MSM_POWER_STATE",
+        srcs = [
+            # do not sort
+            "drivers/soc/qcom/power_state.c",
+        ],
+        deps = [
+            # do not sort
+            "drivers/remoteproc/rproc_qcom_common",
+        ],
+    )
+
+    registry.register(
         name = "drivers/soc/qcom/qcom_pd_mapper",
         out = "qcom_pd_mapper.ko",
         config = "CONFIG_QCOM_PD_MAPPER",
