@@ -56,6 +56,10 @@ source "$(KCONFIG_EXT_PREFIX)drivers/mailbox/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)drivers/mfd/Kconfig"
 
+source "$(KCONFIG_EXT_PREFIX)drivers/eom/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/eom/pcie/Kconfig"
+
 source "$(KCONFIG_EXT_PREFIX)drivers/misc/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)drivers/mmc/host/Kconfig"
