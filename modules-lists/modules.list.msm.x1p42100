@@ -43,3 +43,8 @@ qcom_cpucp.ko
 rproc_qcom_common.ko
 mdt_loader.ko
 spmi-pmic-arb.ko
+clk-dummy.ko
+clk-qcom.ko
+clk-rpmh.ko
+gcc-x1p42100.ko
+tcsrcc-x1e80100.ko
