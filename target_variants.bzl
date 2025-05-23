@@ -18,11 +18,14 @@ la_variants = [
 le_targets = [
     # keep sorted
     #"sun-allyes",
+    "autogvm",
 ]
 
 le_variants = [
     # keep sorted
     #"perf-defconfig",
+    "debug-defconfig",
+    "defconfig",
 ]
 
 vm_types = [

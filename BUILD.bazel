@@ -9,6 +9,7 @@ load(":kleaf-scripts/ddk_uapi_headers_cc_library.bzl", "ddk_uapi_headers_cc_libr
 load(":kleaf-scripts/dtbs.bzl", "define_qcom_dtb_setup")
 load(":kleaf-scripts/generic_qtvm.bzl", "define_qtvm")
 load(":kleaf-scripts/targets/autogvm.bzl", "define_autogvm")
+load(":kleaf-scripts/targets/autogvmlv.bzl", "define_autogvmlv")
 load(
     ":kleaf-scripts/targets/canoe.bzl",
     "define_canoe",
@@ -286,6 +287,8 @@ define_canoe()
 define_sun()
 
 define_autogvm()
+
+define_autogvmlv()
 
 define_sun_tuivm()
 
