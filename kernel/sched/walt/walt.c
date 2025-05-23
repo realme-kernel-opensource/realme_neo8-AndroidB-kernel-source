@@ -4893,6 +4893,9 @@ static void android_rvh_set_task_cpu(void *unused, struct task_struct *p, unsign
 
 static void android_rvh_new_task_stats(void *unused, struct task_struct *p)
 {
+	if (task_on_scx(p))
+		return;
+
 	if (unlikely(walt_disabled))
 		return;
 	mark_task_starting(p);
@@ -4904,6 +4907,9 @@ static void android_rvh_account_irq(void *unused, struct task_struct *curr, int 
 	struct rq *rq;
 	unsigned long flags;
 	struct walt_rq *wrq;
+
+	if (task_on_scx(curr))
+		return;
 
 	if (unlikely(walt_disabled))
 		return;
@@ -5158,6 +5164,9 @@ static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 	unsigned int old_load;
 	struct walt_related_thread_group *grp = NULL;
 
+	if (task_on_scx(p))
+		return;
+
 	if (unlikely(walt_disabled))
 		return;
 	rq_lock_irqsave(rq, &rf);
@@ -5234,7 +5243,8 @@ static void android_rvh_tick_entry(void *unused, struct rq *rq)
 	walt_lockdep_assert_rq(rq, NULL);
 	wallclock = walt_rq_clock(rq);
 
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+	if (!task_on_scx(rq->curr))
+		walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 
 	if (is_ed_task_present(rq, wallclock, NULL))
 		waltgov_run_callback(rq, WALT_CPUFREQ_EARLY_DET_BIT);
@@ -5328,12 +5338,14 @@ static void android_vh_scheduler_tick(void *unused, struct rq *rq)
 	if (unlikely(walt_disabled))
 		return;
 
-	old_load = task_load(rq->curr);
-	rcu_read_lock();
-	grp = task_related_thread_group(rq->curr);
-	if (should_update_preferred_cluster(grp, rq->curr, old_load, true, rq->clock))
-		set_preferred_cluster(grp, rq->clock);
-	rcu_read_unlock();
+	if (!task_on_scx(rq->curr)) {
+		old_load = task_load(rq->curr);
+		rcu_read_lock();
+		grp = task_related_thread_group(rq->curr);
+		if (should_update_preferred_cluster(grp, rq->curr, old_load, true, rq->clock))
+			set_preferred_cluster(grp, rq->clock);
+		rcu_read_unlock();
+	}
 
 	walt_lb_tick(rq);
 
@@ -5393,6 +5405,9 @@ static void android_rvh_schedule(void *unused, struct task_struct *prev,
 	struct walt_task_struct *wts = (struct walt_task_struct *)android_task_vendor_data(prev);
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
 
+	if (task_on_scx(prev) && task_on_scx(next))
+		return;
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -5407,10 +5422,14 @@ static void android_rvh_schedule(void *unused, struct task_struct *prev,
 		wrq->mvp_arrival_time = 0;
 
 	if (likely(prev != next)) {
-		if (!task_is_runnable(prev))
-			wts->last_sleep_ts = wallclock;
-		walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
-		walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+		if (!task_on_scx(prev)) {
+			if (!task_is_runnable(prev))
+				wts->last_sleep_ts = wallclock;
+			walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
+		}
+
+		if (!task_on_scx(next))
+			walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 	} else {
 		walt_update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 	}
