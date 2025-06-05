@@ -156,6 +156,16 @@
 #define HAP_CFG_CL_BRAKE_RNAT_REG		0x54
 #define CL_BRAKE_RNAT_MASK			GENMASK(5, 0)
 
+#define HAP_CFG_CL_BRAKE_CFG2			0x55
+#define BRK_DUTY_STOP_BIT			BIT(7)
+#define BRK_CYC_STOP_BIT			BIT(6)
+#define BRK_DUTY_THRESH_BIT			BIT(4)
+#define SPARE_MASK				GENMASK(1, 0)
+#define BRK_DUTY_STOP_DISABLE			0
+#define BRK_CYC_STOP_ENABLE			1
+#define BRK_DUTY_THRESH_12P5_PCT		0
+#define SPARE_RESERVED				3
+
 /* End HAP530_HV */
 
 #define HAP_CFG_TLRA_OL_HIGH_REG		0x5C
@@ -182,6 +192,9 @@
 
 #define HAP_CFG_ADT_DRV_DUTY_CFG_REG		0x61
 #define HAP_CFG_ZX_WIND_CFG_REG			0x62
+#define HAP_CFG_ZX_DEBOUNCE_MASK		GENMASK(6, 4)
+#define HAP_CFG_EN_ZX_HYST_BIT			BIT(3)
+#define HAP_CFG_ZX_WIN_HEIGHT_MASK		GENMASK(2, 0)
 
 #define HAP_CFG_AUTORES_CFG_REG			0x63
 #define AUTORES_EN_BIT				BIT(7)
@@ -226,6 +239,16 @@
 #define FORCE_VSET_ACK_BIT			BIT(1) /* This is only for HAP525_HV */
 #define FORCE_VREG_RDY_BIT			BIT(0)
 
+#define HAP_CFG_RAMP_DN_CFG_REG			0x6B
+#define RAMP_EN_BIT				BIT(7)
+#define RAMP_MODE_BIT				BIT(6)
+#define RAMP_STEP_SIZE_BIT			BIT(2)
+#define RAMP_STEP_TIME_MASK			GENMASK(1, 0)
+#define RAMP_EN					1
+#define RAMP_MODE_EXPONENTIAL			0
+#define RAMP_STEP_SIZE_6P125_PCT		1
+#define RAMP_STEP_TIME_8xTPWM			2
+
 #define HAP_CFG_ZX_SYNC_CFG			0x6F /* only for HAP530_HV */
 #define EN_PDN_ZX_TO_FAULT_BIT			BIT(2)
 
@@ -243,6 +266,9 @@
 #define BRAKE_CAL_CL_NATURAL			1
 #define BRAKE_CAL_CL_FORCED			2
 #define BRAKE_CAL_CL_RECAL			3
+
+#define HAP_CFG_DBG_CTRL_REG			0x76
+#define LOW_BEMF_DET_DLY_MASK			GENMASK(1, 0)
 
 /* For HAP520_MV and HAP525_HV */
 #define HAP_CFG_ISC_CFG2_REG			0x77
@@ -2257,10 +2283,25 @@ restore:
 	return rc;
 }
 
+static int haptics_config_zx_wind(struct haptics_chip *chip, u8 debounce_us,
+		u8 win_height_mv, bool hyst_en)
+{
+	u8 mask, val = debounce_us - 1;
+
+	mask = HAP_CFG_ZX_DEBOUNCE_MASK |
+		HAP_CFG_ZX_WIN_HEIGHT_MASK | HAP_CFG_EN_ZX_HYST_BIT;
+	val = FIELD_PREP(HAP_CFG_ZX_DEBOUNCE_MASK, val);
+	val |= FIELD_PREP(HAP_CFG_ZX_WIN_HEIGHT_MASK,
+		(win_height_mv > 30 ? (win_height_mv / 10 + 2) : (win_height_mv / 5 - 1)));
+	val |= FIELD_PREP(HAP_CFG_EN_ZX_HYST_BIT, hyst_en);
+
+	return haptics_masked_write(chip, chip->cfg_addr_base, HAP_CFG_ZX_WIND_CFG_REG, mask, val);
+}
+
 static int haptics_set_brake(struct haptics_chip *chip, struct brake_cfg *brake)
 {
 	int rc = 0;
-	u8 mask, val;
+	u8 val;
 
 	if (brake->disabled)
 		return 0;
@@ -2280,20 +2321,6 @@ static int haptics_set_brake(struct haptics_chip *chip, struct brake_cfg *brake)
 	if (rc < 0) {
 		dev_err(chip->dev, "set brake pattern failed, rc=%d\n", rc);
 		return rc;
-	}
-
-	if (chip->hw_type < HAP530_HV)
-		return 0;
-
-	if (brake->mode == CL_BRAKE) {
-		mask = PRE_HIZ_DLY_MASK;
-		val = FIELD_PREP(PRE_HIZ_DLY_MASK, PRE_HIZ_DLY_VAL_120US);
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_RAMP_DN_CFG2_REG, mask, val);
-		if (rc < 0) {
-			dev_err(chip->dev, "set PRE_HIZ_DLY failed, rc=%d\n", rc);
-			return rc;
-		}
 	}
 
 	return 0;
@@ -2772,16 +2799,14 @@ static int haptics_autores_config(struct haptics_chip *chip, bool autores_en)
 		return rc;
 
 	if (chip->hw_type >= HAP530_HV) {
-		val = mask = EN_HW_RECOVERY_BIT | SW_ERR_DRV_FREQ_BIT;
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_AUTORES_ERR_RECOVERY_REG, mask, val);
-		if (rc < 0)
-			return rc;
-
 		mask = PRE_HIZ_DLY_MASK;
 		val = FIELD_PREP(PRE_HIZ_DLY_MASK, PRE_HIZ_DLY_VAL_10US);
 		rc = haptics_masked_write(chip, chip->cfg_addr_base,
 				HAP_CFG_RAMP_DN_CFG2_REG, mask, val);
+		if (rc < 0)
+			return rc;
+
+		return haptics_config_zx_wind(chip, 4, 15, false);
 	}
 
 	return rc;
@@ -3578,6 +3603,7 @@ static int haptics_erase(struct input_dev *dev, int effect_id)
 	struct hv_clamp_cfg clamp_cfg = {0, 0, 0, false};
 	struct haptics_play_info *play = &chip->play;
 	ktime_t pattern_run_time;
+	u8 val;
 	int rc;
 
 	dev_dbg(chip->dev, "erase effect, really stop play\n");
@@ -3606,6 +3632,22 @@ static int haptics_erase(struct input_dev *dev, int effect_id)
 			if (rc < 0)
 				dev_dbg(chip->dev, "get resonance frequency failed, rc=%d\n",
 					rc);
+		}
+
+		/* Update settings to optimize closed-loop brake performance */
+		if (chip->hw_type >= HAP530_HV) {
+			if ((play->pattern_src == DIRECT_PLAY) && chip->config.freq_det_in_play) {
+				rc = haptics_config_zx_wind(chip, 8, 10, true);
+				if (rc < 0)
+					dev_err(chip->dev, "config zx wind failed, rc=%d\n", rc);
+			}
+
+			val = FIELD_PREP(PRE_HIZ_DLY_MASK, PRE_HIZ_DLY_VAL_120US);
+			rc = haptics_masked_write(chip, chip->cfg_addr_base,
+						 HAP_CFG_RAMP_DN_CFG2_REG,
+						 PRE_HIZ_DLY_MASK, val);
+			if (rc < 0)
+				dev_err(chip->dev, "set PRE_HIZ_DLY failed, rc=%d\n", rc);
 		}
 
 		rc = haptics_enable_play(chip, false);
@@ -4136,8 +4178,8 @@ static int haptics_init_hpwr_config(struct haptics_chip *chip)
 static int haptics_init_drive_config(struct haptics_chip *chip)
 {
 	struct haptics_hw_config *config = &chip->config;
+	u8 mask, val;
 	int rc;
-	u8 val;
 
 	/* Config driver waveform shape and use 2's complement data format */
 	rc = haptics_masked_write(chip, chip->cfg_addr_base,
@@ -4151,10 +4193,24 @@ static int haptics_init_drive_config(struct haptics_chip *chip)
 	val |= FIELD_PREP(BRAKE_SINE_GAIN_MASK, config->brake.sine_gain);
 	val |= FIELD_PREP(BRAKE_WF_SEL_MASK, config->brake.brake_wf);
 
-	return haptics_masked_write(chip, chip->cfg_addr_base,
+	rc = haptics_masked_write(chip, chip->cfg_addr_base,
 			HAP_CFG_BRAKE_MODE_CFG_REG,
 			BRAKE_MODE_MASK | BRAKE_SINE_GAIN_MASK
 			| BRAKE_WF_SEL_MASK, val);
+	if (rc < 0)
+		return rc;
+
+	if (chip->hw_type >= HAP530_HV) {
+		mask = ADT_DRV_DUTY_EN_BIT | ADT_BRK_DUTY_EN_BIT |
+			DRV_DUTY_MASK | BRK_DUTY_MASK;
+		val = DRV_DUTY_62P5_PCT << DRV_DUTY_SHIFT | BRK_DUTY_62P5_PCT |
+			ADT_DRV_DUTY_EN_BIT | ADT_BRK_DUTY_EN_BIT;
+
+		rc = haptics_masked_write(chip, chip->cfg_addr_base,
+				   HAP_CFG_DRV_DUTY_CFG_REG, mask, val);
+	}
+
+	return rc;
 }
 
 static int haptics_init_vmax_config(struct haptics_chip *chip)
@@ -4292,8 +4348,65 @@ static int haptics_init_fifo_config(struct haptics_chip *chip)
 	return 0;
 }
 
+#define BRAKE_HALF_CYCLE_DELAY(x)		(x - 1)
+static int haptics_cl_brake_optimization_config(struct haptics_chip *chip)
+{
+	int rc = 0;
+	u8 val;
+
+	if (chip->hw_type < HAP530_HV)
+		return 0;
+
+	if ((chip->config.swr_brake.mode == CL_BRAKE) || (chip->config.brake.mode == CL_BRAKE)) {
+		rc = haptics_config_zx_wind(chip, 8, 10, true);
+		if (rc < 0)
+			return rc;
+
+		/* Config for HAP_CFG_RAMP_DN_CFG2_REG */
+		val = FIELD_PREP(PRE_HIZ_DLY_MASK, PRE_HIZ_DLY_VAL_120US);
+		rc = haptics_masked_write(chip, chip->cfg_addr_base,
+					 HAP_CFG_RAMP_DN_CFG2_REG,
+					 PRE_HIZ_DLY_MASK, val);
+		if (rc < 0)
+			return rc;
+
+		/* Config for HAP_CFG_RAMP_DN_CFG_REG */
+		val = FIELD_PREP(RAMP_EN_BIT, RAMP_EN);
+		val |= FIELD_PREP(RAMP_MODE_BIT, RAMP_MODE_EXPONENTIAL);
+		val |= FIELD_PREP(RAMP_STEP_SIZE_BIT, RAMP_STEP_SIZE_6P125_PCT);
+		val |= FIELD_PREP(RAMP_STEP_TIME_MASK, RAMP_STEP_TIME_8xTPWM);
+		rc = haptics_masked_write(chip, chip->cfg_addr_base,
+					 HAP_CFG_RAMP_DN_CFG_REG,
+					 RAMP_EN_BIT | RAMP_MODE_BIT |
+					 RAMP_STEP_SIZE_BIT | RAMP_STEP_TIME_MASK, val);
+		if (rc < 0)
+			return rc;
+
+		/* Config for HAP_CFG_CL_BRAKE_CFG2 */
+		val = FIELD_PREP(BRK_DUTY_STOP_BIT, BRK_DUTY_STOP_DISABLE);
+		val |= FIELD_PREP(BRK_CYC_STOP_BIT, BRK_CYC_STOP_ENABLE);
+		val |= FIELD_PREP(BRK_DUTY_THRESH_BIT, BRK_DUTY_THRESH_12P5_PCT);
+		val |= FIELD_PREP(SPARE_MASK, SPARE_RESERVED);
+		rc = haptics_masked_write(chip, chip->cfg_addr_base,
+					 HAP_CFG_CL_BRAKE_CFG2,
+					 BRK_DUTY_STOP_BIT | BRK_CYC_STOP_BIT |
+					 BRK_DUTY_THRESH_BIT | SPARE_MASK, val);
+		if (rc < 0)
+			return rc;
+
+		/* Config for HAP_CFG_DBG_CTRL_REG */
+		val = FIELD_PREP(LOW_BEMF_DET_DLY_MASK, BRAKE_HALF_CYCLE_DELAY(3));
+		rc = haptics_masked_write(chip, chip->cfg_addr_base,
+					 HAP_CFG_DBG_CTRL_REG,
+					 LOW_BEMF_DET_DLY_MASK, val);
+	}
+
+	return rc;
+}
+
 static int haptics_init_brake(struct haptics_chip *chip)
 {
+	int rc;
 	/*
 	 * Brake setting is updated before every SPMI mode play, however, it
 	 * has no chance to program brake setting in every SWR play. Instead,
@@ -4302,6 +4415,10 @@ static int haptics_init_brake(struct haptics_chip *chip)
 	 *   1) HW initialization
 	 *   2) After SPMI play is stopped
 	 */
+	rc = haptics_cl_brake_optimization_config(chip);
+	if (rc < 0)
+		return rc;
+
 	return haptics_set_brake(chip, &chip->config.swr_brake);
 }
 
