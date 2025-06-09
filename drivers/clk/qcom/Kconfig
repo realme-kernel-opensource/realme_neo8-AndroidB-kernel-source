@@ -557,4 +557,13 @@ config CLK_X1E80100_TCSRCC
 	  Support for the TCSR clock controller on X1E80100 devices.
 	  Say Y if you want to use peripheral devices such as SD/UFS.
 
+config CLK_X1E80100_DISPCC
+	tristate "X1E80100 Display Clock Controller"
+	depends on SC_GCC_X1P42100
+	help
+	  Support for the two display clock controllers on Qualcomm
+	  Technologies, Inc. X1E80100 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif
