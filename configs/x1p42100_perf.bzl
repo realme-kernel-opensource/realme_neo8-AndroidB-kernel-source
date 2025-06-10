@@ -48,6 +48,7 @@ x1p42100_perf_config = {
     "CONFIG_MSM_PERFORMANCE": "m",
     "CONFIG_MSM_QMP": "m",
     "CONFIG_NVMEM_QCOM_QFPROM": "m",
+    "CONFIG_PCI_MSM": "m",
     "CONFIG_PINCTRL_MSM": "m",
     "CONFIG_PINCTRL_QCOM_SPMI_PMIC": "m",
     "CONFIG_PLFXLC": "n",

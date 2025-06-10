@@ -38,5 +38,6 @@ mem_buf_dev.ko
 secure_buffer.ko
 qcom_dma_heaps.ko
 msm_dma_iommu_mapping.ko
+pci-msm-drv.ko
 deferred-free-helper.ko
 qcom_cpucp.ko
