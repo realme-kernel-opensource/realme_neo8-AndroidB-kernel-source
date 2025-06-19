@@ -445,6 +445,33 @@ def register_modules(registry):
     )
 
     registry.register(
+        name = "drivers/clk/qcom/clk-smd-rpm",
+        out = "clk-smd-rpm.ko",
+        config = "CONFIG_QCOM_CLK_SMD_RPM",
+        srcs = [
+            # do not sort
+            "drivers/clk/qcom/clk-smd-rpm.c",
+            "drivers/clk/qcom/common.h",
+            "drivers/clk/qcom/clk-debug.h",
+        ],
+        deps = [
+            # do not sort
+            "drivers/clk/qcom/clk-qcom",
+            "drivers/rpmsg/rpm-smd",
+            "drivers/soc/qcom/cmd-db",
+            "drivers/soc/qcom/crm-v2",
+            "kernel/trace/qcom_ipc_logging",
+            "drivers/soc/qcom/minidump",
+            "drivers/soc/qcom/smem",
+            "drivers/soc/qcom/debug_symbol",
+            "drivers/dma-buf/heaps/qcom_dma_heaps",
+            "drivers/iommu/msm_dma_iommu_mapping",
+            "drivers/soc/qcom/mem_buf/mem_buf_dev",
+            "drivers/soc/qcom/secure_buffer",
+        ],
+    )
+
+    registry.register(
         name = "drivers/clk/qcom/clk-rpmh",
         out = "clk-rpmh.ko",
         config = "CONFIG_QCOM_CLK_RPMH",
