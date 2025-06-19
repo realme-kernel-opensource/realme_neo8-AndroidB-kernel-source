@@ -2155,11 +2155,6 @@ static const struct adsp_data x1e80100_adsp_resource = {
 	.lite_pas_id = 0x1f,
 	.minidump_id = 5,
 	.auto_boot = true,
-	.proxy_pd_names = (char*[]){
-		"lcx",
-		"lmx",
-		NULL
-	},
 	.load_state = "adsp",
 	.ssr_name = "lpass",
 	.sysmon_name = "adsp",
@@ -2174,12 +2169,6 @@ static const struct adsp_data x1e80100_cdsp_resource = {
 	.dtb_pas_id = 0x25,
 	.minidump_id = 7,
 	.auto_boot = true,
-	.proxy_pd_names = (char*[]){
-		"cx",
-		"mxc",
-		"nsp",
-		NULL
-	},
 	.load_state = "cdsp",
 	.ssr_name = "cdsp",
 	.sysmon_name = "cdsp",
