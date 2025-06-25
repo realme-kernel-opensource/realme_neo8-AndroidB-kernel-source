@@ -11,6 +11,7 @@ load(":kleaf-scripts/generic_qtvm.bzl", "define_qtvm")
 load(":kleaf-scripts/le_build.bzl", "define_common_le_rules")
 load(":kleaf-scripts/targets/autogvm.bzl", "define_autogvm")
 load(":kleaf-scripts/targets/autogvmlv.bzl", "define_autogvmlv")
+load(":kleaf-scripts/targets/bengal.bzl", "define_bengal")
 load(
     ":kleaf-scripts/targets/canoe.bzl",
     "define_canoe",
@@ -293,6 +294,8 @@ define_sun()
 define_autogvm()
 
 define_autogvmlv()
+
+define_bengal()
 
 define_sun_tuivm()
 
