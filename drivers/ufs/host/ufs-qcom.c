@@ -1660,7 +1660,7 @@ static void ufs_qcom_populate_cluster_info(struct ufs_hba *hba)
 	 */
 	for_each_cpu(cpu, cpu_possible_mask) {
 		cid = topology_cluster_id(cpu);
-		if (cid != prev_cid) {
+		if (cid != prev_cid && cid < MAX_NUM_CLUSTERS) {
 			cid_cpu[cid] = cpu;
 			prev_cid = cid;
 			host->num_cpus++;
@@ -1668,7 +1668,7 @@ static void ufs_qcom_populate_cluster_info(struct ufs_hba *hba)
 	}
 
 	/* populate qos perf and non perf mask */
-	for (i = 0; i < host->num_cpus; i++) {
+	for (i = 0; i < host->num_cpus && i < MAX_NUM_CLUSTERS; i++) {
 		/* Target having single cluster, populate just the perf mask */
 		if (host->num_cpus == 1)
 			host->qos_perf_mask.bits[0] = topology_cluster_cpumask(cid_cpu[i])->bits[0];
