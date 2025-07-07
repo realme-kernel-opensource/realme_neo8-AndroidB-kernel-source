@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 /*
  * Copyright (c) 2018 Synopsys, Inc. and/or its affiliates.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * stmmac XGMAC support.
  */
 
@@ -1539,6 +1540,34 @@ static void dwxgmac3_fpe_configure(void __iomem *ioaddr,
 	writel(value, ioaddr + XGMAC_FPE_CTRL_STS);
 }
 
+static void dwxgmac2_flush_tx_mtl(struct stmmac_priv *priv, struct mac_device_info *hw,
+				  u32 queue)
+{
+	void __iomem *ioaddr = hw->pcsr;
+	const struct dwxgmac_addrs *dwxgmac_addrs = priv->plat->dwxgmac_addrs;
+	u32 vy_count = 0;
+	unsigned long RETRYCOUNT = 1000;
+	u32 ftq = 0;
+
+	/* Flush Tx Queue */
+	ftq = readl(ioaddr + XGMAC_MTL_TXQ_OPMODE(dwxgmac_addrs, queue));
+	ftq |= 1;
+	writel(ftq, ioaddr + XGMAC_MTL_TXQ_OPMODE(dwxgmac_addrs, queue));
+
+	/* Poll Until Poll Condition */
+	while (1) {
+		if (vy_count > RETRYCOUNT) {
+			pr_err("unable to flush tx queue %d\n", queue);
+			break;
+		}
+		vy_count++;
+		usleep_range(1000, 1500);
+		ftq = readl(ioaddr + XGMAC_MTL_TXQ_OPMODE(dwxgmac_addrs, queue));
+		if (((ftq) & (0x1)) == 0)
+			break;
+	}
+}
+
 const struct stmmac_ops dwxgmac210_ops = {
 	.core_init = dwxgmac2_core_init,
 	.set_mac = dwxgmac2_set_mac,
@@ -1580,6 +1609,7 @@ const struct stmmac_ops dwxgmac210_ops = {
 	.config_l4_filter = dwxgmac2_config_l4_filter,
 	.set_arp_offload = dwxgmac2_set_arp_offload,
 	.fpe_configure = dwxgmac3_fpe_configure,
+	.flush_tx_mtl = dwxgmac2_flush_tx_mtl,
 };
 
 static void dwxlgmac2_rx_queue_enable(struct mac_device_info *hw, u8 mode,
