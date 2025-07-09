@@ -287,6 +287,8 @@
 #define QCOM_ID_VIENNAP			670
 #define QCOM_ID_ALOR			685
 #define QCOM_ID_ALOR_INTERPOSER		704
+#define QCOM_ID_WHALE			722
+#define QCOM_ID_WHALEP			723
 #define QCOM_ID_CHORA			724
 
 /*
