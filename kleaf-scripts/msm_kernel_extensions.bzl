@@ -18,6 +18,9 @@ def define_top_level_rules():
 def define_combined_vm_image(target, variant, vm_size_ext4):
     return
 
+def export_init_boot_prebuilt(target, variant):
+    return
+
 def define_extras(target, kbuild_config, flavor = None, alias = None):
     return
 
@@ -34,7 +37,4 @@ def get_dtstree(target):
     return "//soc-repo/arch/arm64/boot/dts/vendor:msm_dt"
 
 def get_vendor_ramdisk_binaries(target, flavor = None):
-    return None
-
-def get_gki_ramdisk_prebuilt_binary():
     return None
