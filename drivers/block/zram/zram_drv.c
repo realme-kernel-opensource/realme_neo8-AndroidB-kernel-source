@@ -1584,6 +1584,7 @@ struct qpace_control {
 	struct mutex queue_lock;
 	struct list_head queue_overflow_list;
 	struct mutex queue_overflow_list_lock;
+	int overflow_list_count;
 	struct qpace_request_queue *output_queue;
 	struct completion work_available;
 	spinlock_t work_available_lock;
@@ -1617,6 +1618,7 @@ struct qpace_control comp_control = {
 	.queue_lock = __MUTEX_INITIALIZER(comp_control.queue_lock),
 	.queue_overflow_list = LIST_HEAD_INIT(comp_control.queue_overflow_list),
 	.queue_overflow_list_lock = __MUTEX_INITIALIZER(comp_control.queue_overflow_list_lock),
+	.overflow_list_count = 0,
 	.output_queue = &comp_out_queue,
 	.work_available = COMPLETION_INITIALIZER(comp_control.work_available),
 	.work_available_lock = __SPIN_LOCK_UNLOCKED(comp_control.work_available_lock),
@@ -1774,6 +1776,7 @@ static int _zram_req_queue_overflow_list_insert(struct qpace_control *qpace_ctl,
 
 	mutex_lock(&qpace_ctl->queue_overflow_list_lock);
 	list_add(&entry->list_node, &qpace_ctl->queue_overflow_list);
+	qpace_ctl->overflow_list_count++;
 	mutex_unlock(&qpace_ctl->queue_overflow_list_lock);
 
 	return 0;
@@ -1802,6 +1805,27 @@ static int comp_request_submit(const struct qpace_request_data *zdata)
 	return queue_ret;
 }
 
+static void zram_abandon_requests(struct qpace_control *qpace_ctl)
+{
+	/* Brownout detected, drop older half of the overflow list */
+	struct qpace_request_queue_overflow_list_entry *qpace_req, *tmp;
+	int i = 0, num_to_drop;
+
+	mutex_lock(&qpace_ctl->queue_overflow_list_lock);
+	num_to_drop = qpace_ctl->overflow_list_count / 2;
+	list_for_each_entry_safe(qpace_req, tmp,
+				 &qpace_ctl->queue_overflow_list,
+				 list_node) {
+		if (++i >= num_to_drop)
+			break;
+		list_del(&qpace_req->list_node);
+		qpace_ctl->overflow_list_count--;
+		zram_qpace_req_err_handler(qpace_req->zdata.zmeta);
+		kfree(qpace_req);
+	}
+	mutex_unlock(&qpace_ctl->queue_overflow_list_lock);
+}
+
 static void enqueue_from_overflow_list(struct qpace_control *qpace_ctl)
 {
 	lockdep_assert_held(&qpace_ctl->queue_lock);
@@ -1810,6 +1834,7 @@ static void enqueue_from_overflow_list(struct qpace_control *qpace_ctl)
 	 * submissions are at the tail of the list.
 	 */
 	mutex_lock(&qpace_ctl->queue_overflow_list_lock);
+
 	if (!list_empty(&qpace_ctl->queue_overflow_list)) {
 		struct qpace_request_queue_overflow_list_entry *qpace_req, *tmp;
 
@@ -1820,6 +1845,7 @@ static void enqueue_from_overflow_list(struct qpace_control *qpace_ctl)
 				break;
 
 			list_del(&qpace_req->list_node);
+			qpace_ctl->overflow_list_count--;
 			_zram_req_queue(qpace_ctl, &qpace_req->zdata);
 			kfree(qpace_req);
 		}
@@ -1882,17 +1908,10 @@ static void zram_compress_success_handler(struct qpace_event_descriptor *ed, int
 			   __GFP_HIGHMEM |
 			   __GFP_MOVABLE);
 	if (IS_ERR_VALUE(handle)) {
+		zram_abandon_requests(&comp_control);
 		atomic64_inc(&zmeta->zram->stats.writestall);
-		handle = zs_malloc(zmeta->zram->mem_pool, comp_len,
-				   GFP_NOIO | __GFP_HIGHMEM |
-				   __GFP_MOVABLE);
-		if (IS_ERR_VALUE(handle)) {
-			zram_qpace_req_err_handler(zmeta);
-
-			pr_err("zs_malloc failed: %ld\n", PTR_ERR((void *)handle));
-
-			return;
-		}
+		zram_qpace_req_err_handler(zmeta);
+		return;
 	}
 
 	zdata->handle = handle;
