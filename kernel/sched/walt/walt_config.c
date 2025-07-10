@@ -251,7 +251,13 @@ void walt_config(void)
 		 */
 		soc_feat_unset(SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT);
 
+	} else if (!strcmp(name, "VIENNA") || !strcmp(name, "VIENNAP")) {
+		/*
+		 * Do not put the whole cluster at Fmin during thermal halt condition.
+		 */
+		soc_feat_unset(SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT);
 	}
+
 }
 
 void early_walt_config(void)
