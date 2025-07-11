@@ -56,8 +56,6 @@ autogvm_perf_config = {
     "CONFIG_GUNYAH_DRIVERS": "y",
     "CONFIG_GUNYAH_PLATFORM_HOOKS": "m",
     "CONFIG_GUNYAH_QCOM_PLATFORM": "n",
-    "CONFIG_HVC_GUNYAH": "m",
-    "CONFIG_HVC_GUNYAH_CONSOLE": "y",
     "CONFIG_QCOM_LAZY_MAPPING": "m",
     "CONFIG_QCOM_MEM_BUF": "m",
     "CONFIG_QCOM_MEM_BUF_DEV": "m",
