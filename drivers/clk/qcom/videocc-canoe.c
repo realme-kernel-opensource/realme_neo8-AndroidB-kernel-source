@@ -48,7 +48,7 @@ static const struct pll_vco taycan_eko_t_vco[] = {
 };
 
 /* 360.0 MHz Configuration */
-static const struct alpha_pll_config video_cc_pll0_config = {
+static struct alpha_pll_config video_cc_pll0_config = {
 	.l = 0x12,
 	.cal_l = 0x48,
 	.alpha = 0xc000,
@@ -87,7 +87,7 @@ static struct clk_alpha_pll video_cc_pll0 = {
 };
 
 /* 480.0 MHz Configuration */
-static const struct alpha_pll_config video_cc_pll1_config = {
+static struct alpha_pll_config video_cc_pll1_config = {
 	.l = 0x19,
 	.cal_l = 0x48,
 	.alpha = 0x0,
@@ -126,7 +126,7 @@ static struct clk_alpha_pll video_cc_pll1 = {
 };
 
 /* 480.0 MHz Configuration */
-static const struct alpha_pll_config video_cc_pll2_config = {
+static struct alpha_pll_config video_cc_pll2_config = {
 	.l = 0x19,
 	.cal_l = 0x48,
 	.alpha = 0x0,
@@ -929,8 +929,12 @@ static void video_cc_canoe_fixup_alor(struct regmap *regmap)
 	video_cc_canoe_clocks[VIDEO_CC_MVS0A_CLK] = NULL;
 	video_cc_canoe_clocks[VIDEO_CC_MVS0A_CLK_SRC] = NULL;
 	video_cc_canoe_clocks[VIDEO_CC_MVS0A_FREERUN_CLK] = NULL;
+	video_cc_canoe_clocks[VIDEO_CC_MVS0_VPP1_CLK] = NULL;
+	video_cc_canoe_clocks[VIDEO_CC_MVS0_VPP1_FREERUN_CLK] = NULL;
 
 	video_cc_canoe_gdscs[VIDEO_CC_MVS0A_GDSC] = NULL;
+	video_cc_canoe_gdscs[VIDEO_CC_MVS0_VPP1_GDSC] = NULL;
+
 	video_cc_mvs0_clk_src.freq_tbl = ftbl_video_cc_mvs0_clk_src_alor;
 	video_cc_mvs0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 560000000;
 	video_cc_mvs0_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L0] = 800000000;
@@ -938,6 +942,10 @@ static void video_cc_canoe_fixup_alor(struct regmap *regmap)
 	video_cc_mvs0b_clk_src.freq_tbl = ftbl_video_cc_mvs0b_clk_src_alor;
 	video_cc_mvs0b_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L1] = 800000000;
 	video_cc_mvs0c_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L0] = 1260000000;
+
+	video_cc_pll0_config.config_ctl_hi_val = 0x0a8060e0;
+	video_cc_pll1_config.config_ctl_hi_val = 0x0a8060e0;
+	video_cc_pll2_config.config_ctl_hi_val = 0x0a8060e0;
 
 }
 
