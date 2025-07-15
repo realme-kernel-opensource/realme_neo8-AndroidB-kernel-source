@@ -1,6 +1,7 @@
 vienna_perf_config = {
     # keep sorted
     "CONFIG_ARCH_VIENNA": "y",
+    # CONFIG_ARM64_AMU_EXTN is not set
     "CONFIG_ARM_QCOM_CPUFREQ_HW": "m",
     "CONFIG_ARM_QCOM_CPUFREQ_HW_DEBUG": "m",
     "CONFIG_ARM_SMMU": "m",
