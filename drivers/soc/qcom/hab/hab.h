@@ -313,7 +313,7 @@ struct hvirq_dbl {
 	int virq_registered;
 	int virtirq_label;
 	int virtirq_num;
-
+	char virtirq_name[20];
 	/* QVM specific fields*/
 	int32_t irq;
 	void __iomem *base;
@@ -431,6 +431,7 @@ struct hab_driver_ops {
 	int (*habhyp_virq_tx_unregister)(struct hvirq_dbl *dbl);
 	int (*habhyp_virq_rx_unregister)(struct hvirq_dbl *dbl);
 	int (*habhyp_get_virq_num_id)(void **virqdev, int label);
+	int (*habhyp_init_virt_irq)(void);
 };
 
 struct hab_driver {
@@ -792,6 +793,11 @@ static inline int hab_stat_log(struct physical_channel **pchans, int pchan_cnt, 
 			int dest_size)
 {
 	return hab_driver.ops->hab_stat_log(pchans, pchan_cnt, dest, dest_size);
+}
+
+static inline int habhyp_init_virt_irq(void)
+{
+	return hab_driver.ops->habhyp_init_virt_irq();
 }
 
 static inline int habhyp_virq_tx_register(struct hvirq_dbl *dbl, int dbl_label)
