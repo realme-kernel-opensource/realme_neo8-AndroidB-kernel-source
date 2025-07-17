@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2018-19, Linaro Limited
-// Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
 #include <linux/module.h>
 #include <linux/of.h>
@@ -115,7 +115,7 @@
 
 enum domain_t {
 	POWER_CORE = 0,
-	POWER_MDIO = 1,
+	POWER_CLK = 1,
 	PERF_SERDES = 2,
 	PERF_5G_SERDES = 3,
 };
@@ -161,7 +161,6 @@ struct qcom_ethqos {
 	bool needs_sgmii_loopback;
 	bool use_domains;
 	struct dev_pm_domain_list *pd_list;
-	bool phy_discon;
 };
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
@@ -395,6 +394,13 @@ static const struct ethqos_emac_driver_data emac_v6_6_0_data = {
 	},
 };
 
+static int qcom_ethqos_is_genpd_on(struct device *dev)
+{
+	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
+
+	return (genpd->status == GENPD_STATE_ON);
+}
+
 static int qcom_ethqos_domain_attach(struct qcom_ethqos *ethqos)
 {
 	const struct ethqos_emac_driver_data *data;
@@ -406,7 +412,7 @@ static int qcom_ethqos_domain_attach(struct qcom_ethqos *ethqos)
 		return -EINVAL;
 	}
 
-	dev_err(dev, "%s num pd %d\n", __func__, data->pd_data.num_pd_names);
+	dev_dbg(dev, "%s num pd %d\n", __func__, data->pd_data.num_pd_names);
 	return dev_pm_domain_attach_list(dev, &data->pd_data, &ethqos->pd_list);
 }
 
@@ -415,9 +421,15 @@ static int qcom_ethqos_domain_on(struct qcom_ethqos *ethqos, enum domain_t dom)
 	struct device *dev = ethqos->pd_list->pd_devs[dom];
 	int ret = 0;
 
-	ret = pm_runtime_resume_and_get(dev);
-	if (ret < 0)
-		dev_err(dev, "poweron(domain=%d) failed.(err=%d)\n", dom, ret);
+	if (!qcom_ethqos_is_genpd_on(dev)) {
+		ret = pm_runtime_resume_and_get(dev);
+		if (ret < 0)
+			dev_err(dev, "poweron(domain=%d) failed.(err=%d)\n", dom, ret);
+
+		dev_dbg(dev, "Requesting power on for (domain=%d)", dom);
+	} else {
+		dev_dbg(dev, "Domain is already on (domain=%d)", dom);
+	}
 
 	return ret;
 }
@@ -427,9 +439,15 @@ static void qcom_ethqos_domain_off(struct qcom_ethqos *ethqos, enum domain_t dom
 	struct device *dev = ethqos->pd_list->pd_devs[dom];
 	int ret = 0;
 
-	ret = pm_runtime_put_sync(dev);
-	if (ret < 0)
-		dev_err(dev, "poweroff(domain=%d) failed.(err=%d)\n", dom, ret);
+	if (qcom_ethqos_is_genpd_on(dev)) {
+		ret = pm_runtime_put_sync(dev);
+		if (ret < 0)
+			dev_err(dev, "poweroff(domain=%d) failed.(err=%d)\n", dom, ret);
+
+		dev_dbg(dev, "Requesting power off for (domain=%d)", dom);
+	} else {
+		dev_dbg(dev, "Domain is already off (domain=%d)", dom);
+	}
 }
 
 static int qcom_ethqos_serdes_set_level(struct qcom_ethqos *ethqos)
@@ -455,6 +473,12 @@ static int qcom_ethqos_serdes_set_level(struct qcom_ethqos *ethqos)
 	ret = dev_pm_opp_set_opp(dev, opp);
 	if (ret)
 		dev_err(dev, "Failed to set serdes level. (err=%d)\n", ret);
+
+	if (!ret) {
+		ret = pm_runtime_resume_and_get(dev);
+		if (ret >= 0)
+			ret = pm_runtime_put_sync(dev);
+	}
 
 	dev_pm_opp_put(opp);
 
@@ -1000,15 +1024,7 @@ static void ethqos_fix_mac_speed(void *priv_n, unsigned int speed, unsigned int 
 static int qcom_ethqos_serdes_up(struct net_device *ndev, void *priv)
 {
 	struct qcom_ethqos *ethqos = priv;
-	int domain = PERF_SERDES;
 	int ret = 0;
-
-	if (ethqos->phy_mode == PHY_INTERFACE_MODE_5GBASER)
-		domain = PERF_5G_SERDES;
-
-	ret = qcom_ethqos_domain_on(ethqos, domain);
-	if (ret < 0)
-		return ret;
 
 	ret = qcom_ethqos_serdes_set_level(ethqos);
 
@@ -1019,15 +1035,10 @@ static void qcom_ethqos_serdes_down(struct net_device *ndev, void *priv)
 {
 	struct qcom_ethqos *ethqos = priv;
 	int old_speed = ethqos->speed;
-	int domain = PERF_SERDES;
 
 	ethqos->speed = 10;
 	qcom_ethqos_serdes_set_level(ethqos);
 
-	if (ethqos->phy_mode == PHY_INTERFACE_MODE_5GBASER)
-		domain = PERF_5G_SERDES;
-
-	qcom_ethqos_domain_off(ethqos, domain);
 	ethqos->speed = old_speed;
 }
 
@@ -1038,16 +1049,14 @@ static int qcom_ethqos_domain_transition_d0d1(void *priv, bool high)
 	int ret = 0;
 
 	if (high) {
-		ret = qcom_ethqos_domain_on(ethqos, POWER_MDIO);
+		ret = qcom_ethqos_domain_on(ethqos, POWER_CLK);
 		if (ret < 0) {
-			dev_err(&ethqos->pdev->dev, "Transition from d1 to d0 failed\n");
+			dev_err(&ethqos->pdev->dev, "MDIO Transition from d1 to d0 failed\n");
 			return ret;
 		}
-		ethqos_set_func_clk_en(ethqos);
 	} else {
-		qcom_ethqos_domain_off(ethqos, POWER_MDIO);
+		qcom_ethqos_domain_off(ethqos, POWER_CLK);
 	}
-
 	return ret;
 }
 
@@ -1063,7 +1072,7 @@ static int qcom_ethqos_domain_transition_d0d3(void *priv, bool high)
 			return ret;
 		}
 
-		ret = qcom_ethqos_domain_on(ethqos, POWER_MDIO);
+		ret = qcom_ethqos_domain_on(ethqos, POWER_CLK);
 		if (ret < 0) {
 			dev_err(&ethqos->pdev->dev, "MDIO Transition from d3 to d0 failed\n");
 			qcom_ethqos_domain_off(ethqos, POWER_CORE);
@@ -1071,7 +1080,7 @@ static int qcom_ethqos_domain_transition_d0d3(void *priv, bool high)
 		}
 
 	} else {
-		qcom_ethqos_domain_off(ethqos, POWER_MDIO);
+		qcom_ethqos_domain_off(ethqos, POWER_CLK);
 		qcom_ethqos_domain_off(ethqos, POWER_CORE);
 	}
 
@@ -1092,87 +1101,28 @@ static void qcom_ethqos_exit(struct platform_device *pdev, void *prv)
 		qcom_ethqos_domain_transition_d0d3(prv, false);
 		pm_runtime_disable(priv->device);
 		dev_pm_domain_detach_list(ethqos->pd_list);
+		dev_dbg(&ethqos->pdev->dev, "Detaching all Power and Perf domains");
 	} else {
-		if (netif_running(ndev)) {
-			disable_irq(ndev->irq);
-			rtnl_lock();
-			phylink_disconnect_phy(priv->phylink);
-			rtnl_unlock();
-			netif_carrier_off(ndev);
-			pr_err("%s disconnect phy\n", __func__);
-			ethqos->phy_discon = true;
-		}
 		qcom_ethqos_domain_transition_d0d3(prv, false);
+		dev_dbg(&ethqos->pdev->dev, "Turning off Power and Perf domains");
 	}
-}
-
-static int qcom_ethqos_init_phy(struct net_device *ndev)
-{
-	struct stmmac_priv *priv = netdev_priv(ndev);
-	struct fwnode_handle *fwnode;
-	int ret;
-
-	fwnode = priv->plat->port_node;
-	if (!fwnode)
-		fwnode = dev_fwnode(priv->device);
-
-	if (fwnode)
-		ret = phylink_fwnode_phy_connect(priv->phylink, fwnode, 0);
-
-	/* Some DT bindings do not set-up the PHY handle. Let's try to
-	 * manually parse it
-	 */
-	if (!fwnode || ret) {
-		int addr = priv->plat->phy_addr;
-		struct phy_device *phydev;
-
-		phydev = mdiobus_get_phy(priv->mii, addr);
-		if (!phydev) {
-			netdev_err(priv->dev, "no phy at addr %d\n", addr);
-			return -ENODEV;
-		}
-
-		ret = phylink_connect_phy(priv->phylink, phydev);
-	}
-
-	if (!priv->plat->pmt) {
-		struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
-
-		rtnl_lock();
-		phylink_ethtool_get_wol(priv->phylink, &wol);
-		rtnl_unlock();
-		device_set_wakeup_capable(priv->device, !!wol.supported);
-	}
-	return ret;
 }
 
 static int qcom_ethqos_init(struct platform_device *pdev, void *prv)
 {
 	struct qcom_ethqos *ethqos = prv;
-	struct net_device *ndev = platform_get_drvdata(ethqos->pdev);
-	struct stmmac_priv *priv = NULL;
-	int mode;
-	int ret;
+	int ret = 0;
 
-	if (ndev)
-		priv = netdev_priv(ndev);
-
-	ethqos_set_func_clk_en(ethqos);
 	ret = qcom_ethqos_domain_transition_d0d3(prv, true);
-	if (priv && ethqos->phy_discon) {
-		ethqos->phy_discon = false;
-		mode = priv->plat->phy_interface;
-		if (netif_running(ndev)) {
-			pr_err("%s init phy\n", __func__);
-			ret = qcom_ethqos_init_phy(ndev);
-			if (ret) {
-				netdev_err(priv->dev,
-					   "%s: Cannot attach to PHY (error: %d)\n",
-					   __func__, ret);
-			}
-			enable_irq(ndev->irq);
-		}
-	}
+	qcom_ethqos_serdes_set_level(ethqos);
+
+	/* Enable functional clock to prevent DMA reset to timeout due
+	 * to lacking PHY clock after the hardware block has been power
+	 * cycled. The actual configuration will be adjusted once
+	 * ethqos_fix_mac_speed() is invoked.
+	 */
+	ethqos_set_func_clk_en(ethqos);
+
 	return ret;
 }
 
@@ -1372,6 +1322,12 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 
 	ethqos->pdev = pdev;
+	ethqos->speed = SPEED_1000;
+
+	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
+	if (IS_ERR(ethqos->rgmii_base))
+		return dev_err_probe(dev, PTR_ERR(ethqos->rgmii_base),
+				     "Failed to map rgmii resource\n");
 
 	if (of_device_is_compatible(np, "qcom,sa8797p-ethqos")) {
 		ret = qcom_ethqos_domain_attach(ethqos);
@@ -1389,16 +1345,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		plat_dat->init = qcom_ethqos_init;
 
 		qcom_ethqos_domain_transition_d0d3(ethqos, true);
-		if (ethqos->phy_mode == PHY_INTERFACE_MODE_5GBASER)
-			qcom_ethqos_domain_on(ethqos, PERF_5G_SERDES);
-		else
-			qcom_ethqos_domain_on(ethqos, PERF_SERDES);
+		qcom_ethqos_serdes_set_level(ethqos);
 	}
-
-	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
-	if (IS_ERR(ethqos->rgmii_base))
-		return dev_err_probe(dev, PTR_ERR(ethqos->rgmii_base),
-				     "Failed to map rgmii resource\n");
 
 	ethqos->mac_base = stmmac_res.addr;
 
@@ -1429,7 +1377,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(ethqos->serdes_phy),
 				     "Failed to get serdes phy\n");
 
-	ethqos->speed = SPEED_1000;
 	ethqos->serdes_speed = SPEED_1000;
 	ethqos_update_link_clk(ethqos, SPEED_1000);
 	ethqos_set_func_clk_en(ethqos);
