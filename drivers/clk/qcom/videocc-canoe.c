@@ -302,6 +302,18 @@ static const struct freq_tbl ftbl_video_cc_mvs0_clk_src_canoe_v2[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_video_cc_mvs0_clk_src_alor[] = {
+	F(240000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(338000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(420000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(444000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(560000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(630000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(800000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	F(970000000, P_VIDEO_CC_PLL1_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 video_cc_mvs0_clk_src = {
 	.cmd_rcgr = 0x8030,
 	.mnd_width = 0,
@@ -389,6 +401,17 @@ static const struct freq_tbl ftbl_video_cc_mvs0b_clk_src_canoe_v2[] = {
 	F(533000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
 	F(630000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
 	F(850000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_video_cc_mvs0b_clk_src_alor[] = {
+	F(240000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
+	F(338000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
+	F(420000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
+	F(444000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
+	F(533000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
+	F(630000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
+	F(800000000, P_VIDEO_CC_PLL2_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -908,6 +931,14 @@ static void video_cc_canoe_fixup_alor(struct regmap *regmap)
 	video_cc_canoe_clocks[VIDEO_CC_MVS0A_FREERUN_CLK] = NULL;
 
 	video_cc_canoe_gdscs[VIDEO_CC_MVS0A_GDSC] = NULL;
+	video_cc_mvs0_clk_src.freq_tbl = ftbl_video_cc_mvs0_clk_src_alor;
+	video_cc_mvs0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 560000000;
+	video_cc_mvs0_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L0] = 800000000;
+	video_cc_mvs0_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L1] = 970000000;
+	video_cc_mvs0b_clk_src.freq_tbl = ftbl_video_cc_mvs0b_clk_src_alor;
+	video_cc_mvs0b_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L1] = 800000000;
+	video_cc_mvs0c_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L0] = 1260000000;
+
 }
 
 static int video_cc_canoe_fixup(struct platform_device *pdev, struct regmap *regmap)
