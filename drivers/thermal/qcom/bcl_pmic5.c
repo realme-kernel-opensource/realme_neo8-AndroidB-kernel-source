@@ -78,6 +78,8 @@
 #define BCL_IBAT_THRESH_SCALING_REV5_UA   156255 /* 610.37uA * 256 */
 #define BCL_VBAT_TRIP_CNT     3
 
+#define BCL_IBAT_COTTID_SCALING 366220
+
 #define MAX_PERPH_COUNT       3
 #define IPC_LOGPAGES          2
 
@@ -123,6 +125,8 @@ struct bcl_desc {
 	bool vbat_zone_enabled;
 	u32 vcmp_thresh_base;
 	u32 vcmp_thresh_max;
+	u32 ibat_scaling_factor;
+	u32 ibat_thresh_scaling_factor;
 };
 
 static char bcl_int_names[BCL_TYPE_MAX][25] = {
@@ -385,7 +389,7 @@ static int bcl_set_ibat(struct thermal_zone_device *tz, int low, int high)
 				bat_data->dev->ibat_ext_range_factor);
 	else if (bat_data->dev->dig_major >= BCL_GEN4_MAJOR_REV)
 		convert_ibat_to_adc_val(bat_data->dev, &thresh_value,
-				BCL_IBAT_THRESH_SCALING_REV5_UA *
+				bat_data->dev->desc->ibat_thresh_scaling_factor *
 				bat_data->dev->ibat_ext_range_factor);
 	else if (bat_data->dev->dig_major >= BCL_GEN3_MAJOR_REV)
 		convert_ibat_to_adc_val(bat_data->dev, &thresh_value,
@@ -476,11 +480,11 @@ static int bcl_read_ibat(struct thermal_zone_device *tz, int *adc_value)
 				bat_data->dev->ibat_ext_range_factor);
 		else if (bat_data->dev->dig_major >= BCL_GEN4_MAJOR_REV)
 			convert_adc_nu_to_mu_val(adc_value,
-				BCL_IBAT_SCALING_REV5_NA);
+				bat_data->dev->desc->ibat_thresh_scaling_factor);
 		else if (bat_data->dev->dig_major >= BCL_GEN3_MAJOR_REV)
 			convert_adc_to_ibat_val(bat_data->dev, adc_value,
 				BCL_IBAT_SCALING_REV4_UA *
-					bat_data->dev->ibat_ext_range_factor);
+				bat_data->dev->ibat_ext_range_factor);
 		else
 			convert_adc_to_ibat_val(bat_data->dev, adc_value,
 				BCL_IBAT_SCALING_UA *
@@ -1204,6 +1208,8 @@ static const struct bcl_desc pmih010x_data = {
 	.vbat_zone_enabled = true,
 	.vcmp_thresh_base = 2250,
 	.vcmp_thresh_max = 3600,
+	.ibat_scaling_factor = BCL_IBAT_SCALING_REV5_NA,
+	.ibat_thresh_scaling_factor = BCL_IBAT_THRESH_SCALING_REV5_UA,
 };
 
 static const struct bcl_desc pm8550_data = {
@@ -1216,6 +1222,8 @@ static const struct bcl_desc pm8550_data = {
 	.vbat_zone_enabled = false,
 	.vcmp_thresh_base = 2250,
 	.vcmp_thresh_max = 3600,
+	.ibat_scaling_factor = BCL_IBAT_SCALING_REV5_NA,
+	.ibat_thresh_scaling_factor = BCL_IBAT_THRESH_SCALING_REV5_UA,
 };
 
 static const struct bcl_desc pmh0101_data = {
@@ -1228,11 +1236,28 @@ static const struct bcl_desc pmh0101_data = {
 	.vbat_zone_enabled = false,
 	.vcmp_thresh_base = 1500,
 	.vcmp_thresh_max = 4000,
+	.ibat_scaling_factor = BCL_IBAT_SCALING_REV5_NA,
+	.ibat_thresh_scaling_factor = BCL_IBAT_THRESH_SCALING_REV5_UA,
+};
+
+static const struct bcl_desc pmiv010x_data = {
+	.vadc_type = true,
+	.vbat_regs = {
+		[BCLBIG_COMP_VCMP_L0_THR]		= 0x48,
+		[BCLBIG_COMP_VCMP_L1_THR]		= 0x49,
+		[BCLBIG_COMP_VCMP_L2_THR]		= 0x4A,
+	},
+	.vbat_zone_enabled = true,
+	.vcmp_thresh_base = 2250,
+	.vcmp_thresh_max = 3600,
+	.ibat_scaling_factor = BCL_IBAT_COTTID_SCALING,
+	.ibat_thresh_scaling_factor = BCL_IBAT_SCALING_REV4_UA,
 };
 
 static const struct of_device_id bcl_match[] = {
 	{ .compatible = "qcom,bcl-v5", .data = &pmih010x_data},
 	{ .compatible = "qcom,pmh0101-bcl-v5", .data = &pmh0101_data},
+	{ .compatible = "qcom,pmiv010x-bcl-v5", .data = &pmiv010x_data},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, bcl_match);
