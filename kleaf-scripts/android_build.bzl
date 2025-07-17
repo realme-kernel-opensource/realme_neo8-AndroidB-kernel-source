@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("//build:msm_kernel_extensions.bzl", "define_extras", "get_gki_ramdisk_prebuilt_binary", "get_vendor_ramdisk_binaries")
+load("//build:msm_kernel_extensions.bzl", "define_extras", "export_init_boot_prebuilt", "get_vendor_ramdisk_binaries")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
 load(
@@ -139,7 +139,6 @@ def define_single_android_build(
         kernel_build = "{}_dtb_build".format(stem),
         base_kernel_images = "{}_images".format(base_kernel),
         dtbo_srcs = [":{}_dtb_build/{}".format(stem, dtbo) for dtbo in dtbo_list] if dtbo_list else None,
-        gki_ramdisk_prebuilt_binary = get_gki_ramdisk_prebuilt_binary(),
         build_vendor_boot = True,
         build_vendor_kernel_boot = False,
         build_initramfs = True,
@@ -302,6 +301,8 @@ def define_single_android_build(
     define_techpack_modules(stem, name, variant)
 
     define_extras(stem, kbuild_config = base_kernel)
+
+    export_init_boot_prebuilt(name, variant)
 
 def define_android_build(
         name,
