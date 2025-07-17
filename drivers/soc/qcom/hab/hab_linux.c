@@ -490,17 +490,37 @@ struct export_desc_super *hab_rb_exp_insert(struct rb_root *root, struct export_
  */
 #define CDEV_NUM_MAX (MM_ID_MAX / 100 + 2)
 
+/*
+ * Create a char device for the specified MMID group.
+ * The input argument is the MMID group divided by 100, e.g., 1 for audio, 6 for misc.
+ * If 0 is given, create a device for /dev/hab.
+ */
 int hab_create_cdev_node(int mmid_grp_index)
 {
 	int result;
 	const char *node_name;
 	dev_t dev_no;
+	struct local_vmid *settings;
+	int i, vmid;
 
 	node_name = HAB_MMID_MAP_NODE(mmid_grp_index * 100);
 	if (!node_name) {
 		pr_err("err hab group id %d\n", mmid_grp_index);
 		return -ENOENT;
 	}
+
+	settings = &hab_driver.settings;
+	/* locate first remote vmid */
+	for (i = 0; i < HABCFG_VMID_MAX; i++)
+		if (HABCFG_GET_VMID(settings, i) != HABCFG_VMID_INVALID &&
+			HABCFG_GET_VMID(settings, i) != settings->self)
+			break;
+
+	if (i == HABCFG_VMID_MAX) {
+		pr_err("remote vmid not filled\n");
+		return -ENODEV;
+	}
+	vmid = HABCFG_GET_VMID(settings, i);
 
 	cdev_init(&(hab_driver.cdev[mmid_grp_index]), &hab_fops);
 	hab_driver.cdev[mmid_grp_index].owner = THIS_MODULE;
@@ -537,7 +557,19 @@ int hab_create_cdev_node(int mmid_grp_index)
 		set_dma_ops(hab_driver.dev[mmid_grp_index], &hab_dma_ops);
 	}
 
-	pr_debug("create char device for /dev/%s successful\n", node_name);
+	if (mmid_grp_index != 0)
+		hab_driver.dev[mmid_grp_index]->dma_coherent =
+			HABCFG_GET_DMA_COHERENT(settings, vmid, mmid_grp_index);
+	else
+		/*
+		 * no device tree node for the super node /dev/hab
+		 * set the default value, false, for coherent of device /dev/hab
+		 */
+		hab_driver.dev[mmid_grp_index]->dma_coherent = false;
+
+	pr_debug("create char device for /dev/%s successful, coherent %d\n",
+		node_name, hab_driver.dev[mmid_grp_index]->dma_coherent);
+
 	return 0;
 }
 
