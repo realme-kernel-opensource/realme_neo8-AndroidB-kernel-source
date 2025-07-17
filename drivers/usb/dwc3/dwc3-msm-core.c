@@ -537,6 +537,8 @@ struct dwc3_msm {
 	int			dbm_num_eps;
 	bool			dbm_is_1p4;
 
+	/* VBUS regulator for host mode */
+	struct regulator	*vbus_reg;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	struct usb_irq		wakeup_irq[USB_MAX_IRQ];
@@ -6628,6 +6630,25 @@ static int dwc3_msm_check_extcon_prop(struct platform_device *pdev)
 	return ret;
 }
 
+static int vbus_regulator_get(struct dwc3_msm *mdwc)
+{
+	/*
+	 * The vbus_reg pointer could have multiple values
+	 * NULL: regulator_get() hasn't been called, or was previously deferred
+	 * IS_ERR: regulator could not be obtained, so skip using it
+	 * Valid pointer otherwise
+	 */
+	mdwc->vbus_reg = devm_regulator_get_optional(mdwc->dev,
+						"vbus_dwc3");
+	if (IS_ERR(mdwc->vbus_reg) &&
+			PTR_ERR(mdwc->vbus_reg) == -EPROBE_DEFER) {
+		/* regulators may not be ready, so retry again later */
+		mdwc->vbus_reg = NULL;
+		return -EPROBE_DEFER;
+	}
+	return 0;
+}
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -6714,6 +6735,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(mdwc->dev);
 	device_init_wakeup(mdwc->dev, 1);
 
+	ret = vbus_regulator_get(mdwc);
+	if (ret < 0)
+		goto err;
+
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
 
@@ -6756,6 +6781,17 @@ err:
 put_pd:
 	dwc3_msm_modeled_domain_detach(mdwc);
 	return ret;
+}
+
+static int vbus_regulator_toggle(struct dwc3_msm *mdwc, bool on)
+{
+	if (!mdwc->vbus_reg)
+		return 0;
+
+	if (!on)
+		return regulator_disable(mdwc->vbus_reg);
+
+	return regulator_enable(mdwc->vbus_reg);
 }
 
 static void dwc3_msm_remove(struct platform_device *pdev)
@@ -6820,6 +6856,7 @@ static void dwc3_msm_remove(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++)
 		icc_put(mdwc->icc_paths[i]);
 
+	vbus_regulator_toggle(mdwc, false);
 	if (mdwc->wakeup_irq[HS_PHY_IRQ].irq)
 		disable_irq(mdwc->wakeup_irq[HS_PHY_IRQ].irq);
 	if (mdwc->wakeup_irq[DP_HS_PHY_IRQ].irq)
@@ -7203,6 +7240,11 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
+		ret = vbus_regulator_toggle(mdwc, true);
+		if (ret) {
+			dev_err(mdwc->dev, "unable to enable vbus_reg\n");
+			return ret;
+		}
 		dwc3_msm_set_usbphy_flags(mdwc->hs_phy, PHY_HOST_MODE);
 		dbg_event(0xFF, "hs_phy_flag:", dwc3_msm_get_usbphy_flags(mdwc->hs_phy));
 
@@ -7212,6 +7254,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		ret = pm_runtime_resume_and_get(mdwc->dev);
 		if (ret < 0) {
 			dev_err(mdwc->dev, "%s: pm_runtime_resume_and_get failed\n", __func__);
+			vbus_regulator_toggle(mdwc, false);
 			dwc3_msm_clear_usbphy_flags(mdwc->hs_phy, PHY_HOST_MODE);
 			pm_runtime_set_suspended(mdwc->dev);
 			return ret;
@@ -7304,7 +7347,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
-
+		vbus_regulator_toggle(mdwc, false);
 		ret = pm_runtime_resume_and_get(&mdwc->dwc3->dev);
 		if (ret < 0) {
 			dev_err(mdwc->dev, "%s: pm_runtime_resume_and_get failed\n", __func__);
