@@ -62,6 +62,7 @@ autogvm_perf_config = {
     "CONFIG_QCOM_MEM_BUF_DEV_GH": "y",
     "CONFIG_QCOM_MEM_BUF_GH": "y",
     "CONFIG_QCOM_MEM_BUF_MSGQ": "m",
+    "CONFIG_GH_MEM_NOTIFIER": "m",
     "CONFIG_QCOM_DEBUG_SYMBOL": "m",
     "CONFIG_QCOM_DMABUF_HEAPS": "m",
     "CONFIG_QCOM_DMABUF_HEAPS_CARVEOUT": "y",
