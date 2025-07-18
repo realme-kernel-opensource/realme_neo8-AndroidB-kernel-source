@@ -63,11 +63,25 @@
 #define EARLY_BOOT_RETRY_COUNT 5
 #define EARLY_BOOT_RETRY_INTERVAL_MS 1000
 
+struct q6_subdev {
+	const char *firmware_name;
+	int pas_id;
+	bool is_dtb;
+	const struct firmware *firmware;
+	phys_addr_t mem_phys;
+	phys_addr_t mem_reloc;
+	void *mem_region;
+	size_t mem_size;
+	struct qcom_scm_pas_metadata pas_metadata;
+};
+
 struct adsp_data {
 	int crash_reason_smem;
 	int crash_reason_stack;
 	const char *firmware_name;
 	const char *dtb_firmware_name;
+	struct q6_subdev *q6_subdev;
+	int q6_subdev_count;
 	int pas_id;
 	int dtb_pas_id;
 	int lite_pas_id;
@@ -100,6 +114,8 @@ struct qcom_adsp {
 	struct rproc *rproc;
 
 	struct qcom_q6v5 q6v5;
+	struct q6_subdev *q6_subdev;
+	int q6_subdev_count;
 
 	struct clk *xo;
 	struct clk *aggre2_clk;
@@ -354,6 +370,7 @@ static int adsp_unprepare(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 	struct device *dev = NULL;
+	int i;
 
 	if (adsp->dma_phys_below_32b)
 		dev = adsp->dev;
@@ -366,6 +383,9 @@ static int adsp_unprepare(struct rproc *rproc)
 	qcom_scm_pas_metadata_release(&adsp->pas_metadata, dev);
 	if (adsp->dtb_pas_id)
 		qcom_scm_pas_metadata_release(&adsp->dtb_pas_metadata, dev);
+	if (adsp->q6_subdev)
+		for (i = 0; i < adsp->q6_subdev_count; i++)
+			qcom_scm_pas_metadata_release(&adsp->q6_subdev[i].pas_metadata, dev);
 
 	return 0;
 }
@@ -389,7 +409,7 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 	struct device *dev = NULL;
-	int ret = 0;
+	int i, idx, ret = 0;
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "enter");
 
@@ -425,8 +445,39 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 			goto release_dtb_metadata;
 	}
 
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++) {
+			ret = request_firmware(&adsp->q6_subdev[i].firmware,
+				adsp->q6_subdev[i].firmware_name, adsp->dev);
+			if (ret) {
+				dev_err(adsp->dev, "request_firmware failed for %s: %d\n",
+					adsp->q6_subdev[i].firmware_name, ret);
+				goto release_dtb_metadata;
+			}
+			ret = qcom_mdt_pas_init(adsp->dev, adsp->q6_subdev[i].firmware,
+				adsp->q6_subdev[i].firmware_name, adsp->q6_subdev[i].pas_id,
+				adsp->q6_subdev[i].mem_phys, &adsp->q6_subdev[i].pas_metadata,
+				adsp->dma_phys_below_32b);
+			if (ret)
+				goto release_q6_subdev_firmware;
+
+			ret = qcom_mdt_load_no_init(adsp->dev, adsp->q6_subdev[i].firmware,
+					adsp->q6_subdev[i].firmware_name, adsp->q6_subdev[i].pas_id,
+					adsp->q6_subdev[i].mem_region, adsp->q6_subdev[i].mem_phys,
+					adsp->q6_subdev[i].mem_size, &adsp->q6_subdev[i].mem_reloc);
+			if (ret)
+				goto release_q6_subdev_metadata;
+		}
+	}
 	goto exit_load;
 
+release_q6_subdev_metadata:
+	if (adsp->q6_subdev)
+		for (idx = 0; idx <= i; idx++)
+			qcom_scm_pas_metadata_release(&adsp->q6_subdev[i].pas_metadata, dev);
+release_q6_subdev_firmware:
+	for (idx = 0; idx <= i; idx++)
+		release_firmware(adsp->q6_subdev[i].firmware);
 release_dtb_metadata:
 	if (adsp->dtb_pas_id && adsp->dma_phys_below_32b)
 		qcom_scm_pas_shutdown(adsp->dtb_pas_id);
@@ -573,7 +624,7 @@ static int adsp_start(struct rproc *rproc)
 	struct qcom_adsp *adsp = rproc->priv;
 	struct device *dev = NULL;
 	bool auth_reset_ret = false;
-	int ret, err;
+	int ret, err, i;
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "enter");
 
@@ -634,6 +685,15 @@ static int adsp_start(struct rproc *rproc)
 				rproc->name, ret);
 
 		auth_reset_ret = true;
+	}
+
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++) {
+			ret = qcom_scm_pas_auth_and_reset(adsp->q6_subdev[i].pas_id);
+			if (ret)
+				panic("Panicking, auth and reset failed for subdev %s ret=%d\n",
+					adsp->q6_subdev[i].firmware_name, ret);
+		}
 	}
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_firmware_loading", "enter");
@@ -720,6 +780,13 @@ exit_start:
 		qcom_scm_pas_metadata_release(&adsp->dtb_pas_metadata, dev);
 
 	release_firmware(adsp->dtb_firmware);
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++) {
+			qcom_scm_pas_metadata_release(&adsp->q6_subdev[i].pas_metadata, dev);
+			release_firmware(adsp->q6_subdev[i].firmware);
+		}
+	}
+
 	qcom_q6v5_pas_set_bw(&adsp->q6v5, 0, 0);
 	/* Remove pointer to the loaded firmware, only valid in adsp_load() & adsp_start() */
 	adsp->firmware = NULL;
@@ -1088,9 +1155,17 @@ static int adsp_stop(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 	int handover;
-	int ret = 0;
+	int i, ret = 0;
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "enter");
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++) {
+			ret = qcom_scm_pas_shutdown(adsp->q6_subdev[i].pas_id);
+			if (ret)
+				panic("Panicking, remoteproc %s subdev fw failed to shutdown.\n",
+						adsp->q6_subdev[i].firmware_name);
+		}
+	}
 
 	ret = qcom_q6v5_request_stop(&adsp->q6v5, adsp->sysmon);
 	if (ret == -ETIMEDOUT)
@@ -1393,6 +1468,7 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 {
 	struct reserved_mem *rmem;
 	struct device_node *node;
+	int i;
 
 	node = of_parse_phandle(adsp->dev->of_node, "memory-region", 0);
 	if (!node) {
@@ -1439,6 +1515,34 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 		dev_err(adsp->dev, "unable to map dtb memory region: %pa+%zx\n",
 			&rmem->base, adsp->dtb_mem_size);
 		return -EBUSY;
+	}
+
+	if (!adsp->q6_subdev)
+		return 0;
+
+	for (i = 0; i < adsp->q6_subdev_count; i++) {
+		node = of_parse_phandle(adsp->dev->of_node, "subdev-memory-region", i);
+
+		if (!node) {
+			dev_err(adsp->dev, "no subdev-memory-region specified for offset %d\n", i);
+			return -EINVAL;
+		}
+		rmem = of_reserved_mem_lookup(node);
+		of_node_put(node);
+		if (!rmem) {
+			dev_err(adsp->dev, "unable to resolve subdev-memory-region\n");
+			return -EINVAL;
+		}
+		adsp->q6_subdev[i].mem_phys = rmem->base;
+
+		adsp->q6_subdev[i].mem_size = rmem->size;
+		adsp->q6_subdev[i].mem_region = devm_ioremap_wc(adsp->dev,
+			adsp->q6_subdev[i].mem_phys, adsp->q6_subdev[i].mem_size);
+		if (!adsp->q6_subdev[i].mem_region) {
+			dev_err(adsp->dev, "unable to map subdev-memory region: %pa+%zx\n",
+				&rmem->base, adsp->q6_subdev[i].mem_size);
+			return -EBUSY;
+		}
 	}
 
 	return 0;
@@ -1665,6 +1769,8 @@ static int adsp_probe(struct platform_device *pdev)
 	adsp->dma_phys_below_32b = desc->dma_phys_below_32b;
 	adsp->check_status = desc->check_status;
 	adsp->subsys_recovery_disabled = true;
+	adsp->q6_subdev = desc->q6_subdev;
+	adsp->q6_subdev_count = desc->q6_subdev_count;
 
 	if (dtb_fw_name) {
 		adsp->dtb_firmware_name = dtb_fw_name;
@@ -2521,10 +2627,17 @@ static const struct adsp_data pineapple_mpss_resource = {
 	.dma_phys_below_32b = true,
 };
 
+static struct q6_subdev vienna_adsp_subdev[] = {
+	{ "lpai_wm.mdt", 0x4F},
+	{ "lpai_am.mdt", 0x4E},
+};
+
 static const struct adsp_data vienna_adsp_resource = {
 	.crash_reason_smem = 423,
 	.firmware_name = "adsp.mdt",
 	.dtb_firmware_name = "adsp_dtb.mdt",
+	.q6_subdev = vienna_adsp_subdev,
+	.q6_subdev_count = ARRAY_SIZE(vienna_adsp_subdev),
 	.pas_id = 1,
 	.dtb_pas_id = 0x24,
 	.minidump_id = 5,
