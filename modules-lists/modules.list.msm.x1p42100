@@ -33,3 +33,9 @@ proxy-consumer.ko
 qti-fixed-regulator.ko
 rpmh-regulator.ko
 qcom-dload-mode.ko
+mem_buf.ko
+mem_buf_dev.ko
+secure_buffer.ko
+qcom_dma_heaps.ko
+msm_dma_iommu_mapping.ko
+deferred-free-helper.ko
