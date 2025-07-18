@@ -9346,6 +9346,29 @@ static struct platform_driver msm_pcie_driver = {
 	},
 };
 
+static int msm_pcie_msi_probe(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static void msm_pcie_msi_remove(struct platform_device *pdev)
+{
+}
+
+static const struct of_device_id msm_pcie_msi_match[] = {
+	{ .compatible = "qcom,pci-msi", },
+	{}
+};
+
+static struct platform_driver msm_pcie_msi_driver = {
+	.probe	= msm_pcie_msi_probe,
+	.remove	= msm_pcie_msi_remove,
+	.driver	= {
+		.name		= "pci-msm-msi",
+		.of_match_table	= msm_pcie_msi_match,
+	},
+};
+
 static int msm_pcie_drv_rpmsg_probe(struct rpmsg_device *rpdev)
 {
 	mutex_lock(&pcie_drv.rpmsg_lock);
@@ -9669,6 +9692,10 @@ static int __init pcie_init(void)
 		msm_pcie_dev[i] = NULL;
 
 	pcie_drv.msm_pcie_dev = msm_pcie_dev;
+
+	ret = platform_driver_register(&msm_pcie_msi_driver);
+	if (ret)
+		pr_debug("pcie:%s msi driver registration failed\n", __func__);
 
 	ret = platform_driver_register(&msm_pcie_driver);
 	if (ret)
