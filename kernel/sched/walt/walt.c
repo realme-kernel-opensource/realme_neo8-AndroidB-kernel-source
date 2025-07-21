@@ -757,7 +757,6 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *rea
 			walt_load->ed_active = true;
 		else
 			walt_load->ed_active = false;
-		walt_load->trailblazer_state = trailblazer_state;
 		walt_load->non_boosted_load = non_boosted_load;
 		walt_load->trailblazer_boost_state = trailblazer_boost_state_ns ? true : false;
 	}
@@ -2245,7 +2244,7 @@ static inline u32 scale_util_to_time(u16 util)
 	return util * walt_scale_demand_divisor;
 }
 
-#define PIPELINE_IDLE_MS 100000000
+#define PIPELINE_IDLE_MS 3000000000
 static void update_trailblazer_accounting(struct task_struct *p, struct rq *rq,
 		u32 runtime, u16 runtime_scaled, u32 *demand, u16 *trailblazer_demand)
 {
