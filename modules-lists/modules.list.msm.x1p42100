@@ -40,3 +40,5 @@ qcom_dma_heaps.ko
 msm_dma_iommu_mapping.ko
 deferred-free-helper.ko
 qcom_cpucp.ko
+rproc_qcom_common.ko
+mdt_loader.ko
