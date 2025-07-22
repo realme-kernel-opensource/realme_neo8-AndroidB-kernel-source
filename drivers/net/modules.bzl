@@ -36,7 +36,7 @@ def register_modules(registry):
         config = "CONFIG_VIRTIO_NET",
         srcs = [
             # do not sort
-            "drivers/net/virtio_net.c",
+            "drivers/net/virtio_net_fixed.c",
         ],
         deps = [
             # do not sort

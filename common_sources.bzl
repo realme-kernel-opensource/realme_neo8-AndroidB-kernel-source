@@ -112,3 +112,13 @@ def define_common_upstream_files():
         outs = ["drivers/dma/qcom/gpi_fixed.c"],
         cmd = "patch --follow-symlinks -o $@ -i $(execpath :drivers/dma/qcom/gpi_fix.diff) $(execpath //common:drivers/dma/qcom/gpi.c)",
     )
+
+    native.genrule(
+        name = "patched-drivers/net/virtio_net.c",
+        srcs = [
+            "//common:drivers/net/virtio_net.c",
+            ":drivers/net/virtio_net_fix.diff",
+        ],
+        outs = ["drivers/net/virtio_net_fixed.c"],
+        cmd = "patch --follow-symlinks -o $@ -i $(execpath :drivers/net/virtio_net_fix.diff) $(execpath //common:drivers/net/virtio_net.c)",
+    )

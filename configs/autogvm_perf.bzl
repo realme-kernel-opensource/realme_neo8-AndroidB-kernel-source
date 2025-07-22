@@ -129,6 +129,7 @@ autogvm_perf_config = {
     "CONFIG_FAILOVER": "m",
     "CONFIG_NET_FAILOVER": "m",
     "CONFIG_VIRTIO_NET": "m",
+    "CONFIG_VIRTIO_NET_DISABLE_F_DEVICE_STATS": "y",
     "CONFIG_QCOM_RPROC_COMMON": "m",
     "CONFIG_QCOM_GENI_SE_MSM": "m",
     "CONFIG_SERIAL_QCOM_GENI_MSM": "m",
