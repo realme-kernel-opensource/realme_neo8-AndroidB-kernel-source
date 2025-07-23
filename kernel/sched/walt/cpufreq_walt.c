@@ -1010,14 +1010,10 @@ static ssize_t zone_max_util_pct_store(struct gov_attr_set *attr_set,
 		cluster = cpu_cluster(wg_policy->policy->cpu);
 
 		/*
-		 * Check if target load percentange entered for zones are in range
-		 * and greater than 80%.
+		 * Check if target load percentange entered for zones are in range [1,100]
 		 */
 		for (i = 1; i < size; i += 2) {
-			if (temp[i] < 80 || temp[i] > 100)
-				goto exit;
-
-			if (i > 1 && temp[i] > temp[i-2])
+			if (temp[i] < 1 || temp[i] > 100)
 				goto exit;
 		}
 
@@ -1051,12 +1047,8 @@ static ssize_t zone_max_util_pct_store(struct gov_attr_set *attr_set,
 				if (temp2[i] == -1)
 					break;
 
-				if (temp2[i] < 80 || temp2[i] > 100)
+				if (temp2[i] < 1 || temp2[i] > 100)
 					goto exit;
-
-				if (i > 1 && temp2[i] > temp2[i-2])
-					goto exit;
-
 			}
 		}
 		/*
