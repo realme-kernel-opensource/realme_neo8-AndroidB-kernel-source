@@ -1734,6 +1734,7 @@ drivers/spmi/spmi.c
 drivers/staging/android/ashmem.h
 drivers/staging/android/ashmem_range.rs
 drivers/staging/android/ashmem_rust.rs
+drivers/staging/android/ashmem_rust_exports.c
 drivers/staging/android/ashmem_shrinker.rs
 drivers/staging/android/ashmem_toggle.rs
 drivers/staging/android/shmem.rs
@@ -4650,6 +4651,7 @@ include/trace/hooks/timer.h
 include/trace/hooks/topology.h
 include/trace/hooks/traps.h
 include/trace/hooks/ufshcd.h
+include/trace/hooks/usb.h
 include/trace/hooks/user.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/vmscan.h
