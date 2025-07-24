@@ -160,6 +160,9 @@ static u32 tsens_read_cell(const struct tsens_single_value *cell, u8 len, u32 *d
 	u32 val;
 	u32 *data = cell->blob ? data1 : data0;
 
+	if (data == NULL)
+		return 0;
+
 	if (cell->shift + len <= 32) {
 		val = data[cell->idx] >> cell->shift;
 	} else {
@@ -760,6 +763,7 @@ static int tsens_set_trips(struct thermal_zone_device *tz, int low, int high)
 
 	spin_lock_irqsave(&priv->ul_lock, flags);
 
+	memset(&d, 0, sizeof(struct tsens_irq_data));
 	tsens_read_irq_state(priv, hw_id, s, &d);
 
 	/* Write the new thresholds and clear the status */
@@ -974,7 +978,7 @@ int __init init_common(struct tsens_priv *priv)
 {
 	void __iomem *tm_base, *srot_base;
 	struct device *dev = priv->dev;
-	u32 ver_minor, ver_major;
+	u32 ver_minor, ver_major = 0;
 	struct resource *res;
 	u32 enabled;
 	int ret, i, j;
@@ -1464,7 +1468,7 @@ static int tsens_probe(struct platform_device *pdev)
 	if (np)
 		of_property_read_u32(np, "#qcom,sensors", &num_sensors);
 
-	if (num_sensors <= 0) {
+	if (num_sensors <= 0 || num_sensors > MAX_SENSORS) {
 		dev_err(dev, "%s: invalid number of sensors\n", __func__);
 		return -EINVAL;
 	}
