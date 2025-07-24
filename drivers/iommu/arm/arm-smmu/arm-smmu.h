@@ -6,7 +6,7 @@
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef _ARM_SMMU_H
@@ -520,6 +520,8 @@ struct arm_smmu_domain {
 	bool				deferred_flush;
 
 	struct iommu_domain		domain;
+	struct qcom_io_pgtable_info	pgtbl_info;
+	enum io_pgtable_fmt		pgtbl_fmt;
 	/* mapping_cfg.atomic indicates that runtime power management should be disabled. */
 	bool				rpm_always_on;
 	/* skip tlb management. */
