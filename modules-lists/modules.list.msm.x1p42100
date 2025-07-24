@@ -42,3 +42,4 @@ deferred-free-helper.ko
 qcom_cpucp.ko
 rproc_qcom_common.ko
 mdt_loader.ko
+spmi-pmic-arb.ko
