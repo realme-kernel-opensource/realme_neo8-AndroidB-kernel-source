@@ -255,7 +255,7 @@ static void gh_populate_all_res_info(gh_vmid_t vmid, bool res_populated)
 	}
 
 	if (!is_vm_supports_proxy(vmid)) {
-		pr_info("Proxy Scheduling isn't supported for VM=%d\n", vmid);
+		pr_debug("VM %d is not managed by Gunyah vCPU manager vendor module\n", vmid);
 		return;
 	}
 
@@ -554,7 +554,7 @@ static void android_rvh_gh_before_vcpu_release(void *unused, u16 vmid,
 	struct gh_proxy_vm *vm;
 
 	if (!is_vm_supports_proxy(vmid)) {
-		pr_info("Proxy Scheduling isn't supported for VM=%d\n", vmid);
+		pr_debug("VM %d is not managed by Gunyah vCPU manager vendor module\n", vmid);
 		return;
 	}
 
@@ -584,7 +584,7 @@ static void android_rvh_gh_before_vm_release(void *unused, u16 vmid,
 	struct gh_proxy_vm *vm;
 
 	if (!is_vm_supports_proxy(vmid)) {
-		pr_info("Proxy Scheduling isn't supported for VM=%d\n", vmid);
+		pr_debug("VM %d is not managed by Gunyah vCPU manager vendor module\n", vmid);
 		return;
 	}
 
