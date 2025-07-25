@@ -17,6 +17,7 @@ load(
     "define_canoe_tuivm",
 )
 load(":kleaf-scripts/targets/canoe_vms.bzl", "define_canoe_vms")
+load(":kleaf-scripts/targets/hamoa.bzl", "define_hamoa")
 load(":kleaf-scripts/targets/lahaina.bzl", "define_lahaina")
 load(
     ":kleaf-scripts/targets/sun.bzl",
@@ -26,7 +27,6 @@ load(
 )
 load(":kleaf-scripts/targets/sun_vms.bzl", "define_sun_vms")
 load(":kleaf-scripts/targets/vienna.bzl", "define_vienna")
-load(":kleaf-scripts/targets/x1p42100.bzl", "define_x1p42100")
 
 exports_files(["android/abi_gki_aarch64_qcom"])
 
@@ -306,4 +306,4 @@ define_vienna()
 
 define_lahaina()
 
-define_x1p42100()
+define_hamoa()

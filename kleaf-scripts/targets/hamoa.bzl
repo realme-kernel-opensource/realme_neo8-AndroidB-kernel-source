@@ -1,14 +1,14 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_abi", "kernel_module_group")
-load(":configs/x1p42100_consolidate.bzl", "x1p42100_consolidate_config")
-load(":configs/x1p42100_perf.bzl", "x1p42100_perf_config")
+load(":configs/hamoa_consolidate.bzl", "hamoa_consolidate_config")
+load(":configs/hamoa_perf.bzl", "hamoa_perf_config")
 load(":kleaf-scripts/android_build.bzl", "define_typical_android_build")
 load(":kleaf-scripts/image_opts.bzl", "boot_image_opts")
 load(":kleaf-scripts/vm_build.bzl", "define_typical_vm_build")
 load(":target_variants.bzl", "la_variants")
 
-target_name = "x1p42100"
+target_name = "hamoa"
 
-def define_x1p42100():
+def define_hamoa():
     for variant in la_variants:
         board_kernel_cmdline_extras = []
         board_bootconfig_extras = []
@@ -50,24 +50,24 @@ def define_x1p42100():
             )
 
     define_typical_android_build(
-        name = "x1p42100",
-        consolidate_config = x1p42100_consolidate_config,
-        perf_config = x1p42100_perf_config,
+        name = "hamoa",
+        consolidate_config = hamoa_consolidate_config,
+        perf_config = hamoa_perf_config,
         consolidate_build_img_opts = consolidate_build_img_opts,
         perf_build_img_opts = perf_build_img_opts,
         consolidate_kwargs = {
-            "config_path": "configs/x1p42100_consolidate.bzl",
+            "config_path": "configs/hamoa_consolidate.bzl",
         },
         perf_kwargs = {
-            "config_path": "configs/x1p42100_perf.bzl",
+            "config_path": "configs/hamoa_perf.bzl",
         },
     )
 
     kernel_abi(
-        name = "x1p42100_perf_abi",
+        name = "hamoa_perf_abi",
         kernel_build = "//common:kernel_aarch64",
         kernel_modules = [
-            ":x1p42100_perf_all_modules",
+            ":hamoa_perf_all_modules",
         ],
     )
 
