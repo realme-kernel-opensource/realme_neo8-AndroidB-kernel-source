@@ -136,3 +136,13 @@ def define_qtvm():
             "arch/arm64/configs/generic_vm_debug.fragment",
         ],
     )
+
+    define_qc_core_kernel(
+        "kernel_aarch64_autogvmlv",
+        "arch/arm64/configs/generic_auto_defconfig",
+    )
+    define_qc_core_kernel(
+        "kernel_aarch64_autogvmlv_debug",
+        "arch/arm64/configs/generic_auto_defconfig",
+        defconfig_fragments = ["arch/arm64/configs/generic_auto_debug.fragment"],
+    )

@@ -466,7 +466,8 @@ def main():
     else:
         for target in args.target:
             if target[0] == "autogvm":
-                build_gvm_image(target[1])
+                if target[1] != "defconfig" and target[1] != "debug-defconfig":
+                    build_gvm_image(target[1])
         logging.info("Build completed successfully!")
 
 if __name__ == "__main__":
