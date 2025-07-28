@@ -1307,7 +1307,8 @@ static inline void walt_irq_work_queue(struct irq_work *work)
  */
 static inline bool walt_fair_task(struct task_struct *p)
 {
-	return p->prio >= MAX_RT_PRIO && !walt_is_idle_task(p);
+	return (p->prio >= MAX_RT_PRIO && !walt_is_idle_task(p)) &&
+		!(task_on_scx(p));
 }
 
 extern int sched_long_running_rt_task_ms_handler(const struct ctl_table *table, int write,
