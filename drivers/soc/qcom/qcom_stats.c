@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/cdev.h>
@@ -101,6 +101,12 @@
 #define DCP_IOCTL		_IOR(SUBSYSTEM_STATS_MAGIC_NUM, 15, \
 				     struct sleep_stats *)
 
+#define AM_IOCTL		_IOR(SUBSYSTEM_STATS_MAGIC_NUM, 16, \
+				     struct sleep_stats *)
+
+#define WM_IOCTL		_IOR(SUBSYSTEM_STATS_MAGIC_NUM, 17, \
+				     struct sleep_stats *)
+
 struct subsystem_data {
 	const char *name;
 	u32 smem_item;
@@ -124,6 +130,8 @@ static struct subsystem_data subsystems[] = {
 	{ "apss", 631, QCOM_SMEM_HOST_ANY },
 	{ "soccp", 607, 19 },
 	{ "dcp", 607, 22 },
+	{ "am", 679, 24 },
+	{ "wm", 678, 23 },
 };
 
 struct stats_config {
@@ -463,6 +471,12 @@ static long qcom_stats_device_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case DCP_IOCTL:
 		subsystem = &subsystems[14];
+		break;
+	case AM_IOCTL:
+		subsystem = &subsystems[15];
+		break;
+	case WM_IOCTL:
+		subsystem = &subsystems[16];
 		break;
 	case AOSD_IOCTL:
 		stats_id = 0;
