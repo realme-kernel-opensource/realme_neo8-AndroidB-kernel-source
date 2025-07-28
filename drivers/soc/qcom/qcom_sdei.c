@@ -14,6 +14,7 @@
 #include <linux/arm_sdei.h>
 #include <linux/sched/debug.h>
 #include <linux/arm-smccc.h>
+#include <uapi/linux/psci.h>
 
 #define SDEI_EVENT_STANDARD		0x0
 #define SDEI_EVENT_WDG_BITE		0x40000000
@@ -34,6 +35,24 @@ static int sdei_standard_cb(u32 event, struct pt_regs *regs, void *arg)
 	return 0;
 }
 
+static int psci_system_reset(void)
+{
+	struct arm_smccc_res res = { 0 };
+
+	arm_smccc_1_1_hvc(PSCI_0_2_FN_SYSTEM_RESET, &res);
+
+	return res.a0;
+}
+
+static int sdei_shared_reset(void)
+{
+	struct arm_smccc_res res = { 0 };
+
+	arm_smccc_1_1_hvc(SDEI_1_0_FN_SDEI_SHARED_RESET, &res);
+
+	return res.a0;
+}
+
 static int sdei_event_signal(u64 target_pe)
 {
 	struct arm_smccc_res res = { 0 };
@@ -42,6 +61,14 @@ static int sdei_event_signal(u64 target_pe)
 
 	return res.a0;
 }
+
+int qcom_sdei_shared_reset(void)
+{
+	sdei_shared_reset();
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qcom_sdei_shared_reset);
 
 static int sdei_wdg_bite_cb(u32 event, struct pt_regs *regs, void *arg)
 {
@@ -57,8 +84,11 @@ static int sdei_wdg_bite_cb(u32 event, struct pt_regs *regs, void *arg)
 	for_each_possible_cpu(cpu) {
 		if (cpu == smp_processor_id())
 			continue;
+		pr_crit("Dumping call stack on CPU %d\n", cpu);
 		show_regs(&per_cpu(regs_before_sdei, cpu));
 	}
+
+	psci_system_reset();
 
 	return 0;
 }

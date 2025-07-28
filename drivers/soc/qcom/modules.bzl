@@ -1150,6 +1150,7 @@ def register_modules(registry):
             "drivers/soc/qcom/minidump",
             "drivers/soc/qcom/smem",
             "drivers/soc/qcom/debug_symbol",
+            "drivers/soc/qcom/qcom_sdei",
             "drivers/dma-buf/heaps/qcom_dma_heaps",
             "drivers/iommu/msm_dma_iommu_mapping",
             "drivers/soc/qcom/mem_buf/mem_buf_dev",
