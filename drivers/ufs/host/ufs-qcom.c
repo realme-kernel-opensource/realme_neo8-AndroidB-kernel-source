@@ -5701,9 +5701,6 @@ static ssize_t boost_min_threshold_store(struct device *dev,
 	u32 val;
 	int ret;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
-
 	ret = kstrtouint(buf, 0, &val);
 	if (ret) {
 		dev_err(hba->dev, "boost min thres load failed\n");
@@ -5737,9 +5734,6 @@ static ssize_t boost_max_threshold_store(struct device *dev,
 	u32 val;
 	int ret;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
-
 	ret = kstrtouint(buf, 0, &val);
 	if (ret) {
 		dev_err(hba->dev, "boost max thres load failed\n");
@@ -5772,9 +5766,6 @@ static ssize_t boost_monitor_timer_ms_store(struct device *dev,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int ret;
 	u32 val;
-
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
 
 	ret = kstrtouint(buf, 0, &val);
 	if (ret) {
