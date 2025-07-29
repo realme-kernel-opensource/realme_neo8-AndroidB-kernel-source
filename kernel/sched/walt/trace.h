@@ -1344,9 +1344,10 @@ TRACE_EVENT(sched_find_best_target,
 
 TRACE_EVENT(sched_enq_deq_task,
 
-	TP_PROTO(struct task_struct *p, bool enqueue, unsigned int cpus_allowed, bool mvp),
+	TP_PROTO(struct task_struct *p, bool enqueue, unsigned int cpus_allowed, bool mvp,
+		pid_t big_task_pid),
 
-	TP_ARGS(p, enqueue, cpus_allowed, mvp),
+	TP_ARGS(p, enqueue, cpus_allowed, mvp, big_task_pid),
 
 	TP_STRUCT__entry(
 		__array(char,		comm, TASK_COMM_LEN)
@@ -1362,6 +1363,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(bool,		compat_thread)
 		__field(bool,		mvp)
 		__field(bool,		misfit)
+		__field(pid_t,		big_task_pid)
 	),
 
 	TP_fast_assign(
@@ -1380,9 +1382,10 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->mvp		= mvp;
 		__entry->misfit		=
 			((struct walt_task_struct *)android_task_vendor_data(p))->misfit;
+		__entry->big_task_pid		= big_task_pid;
 	),
 
-	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u rt_nr_running=%u affine=%x demand=%u pred_demand_scaled=%u is_compat_t=%d mvp=%d misfit=%d",
+	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u rt_nr_running=%u affine=%x demand=%u pred_demand_scaled=%u is_compat_t=%d mvp=%d misfit=%d big_task_pid=%d",
 			__entry->cpu,
 			__entry->enqueue ? "enqueue" : "dequeue",
 			__entry->comm, __entry->pid,
@@ -1390,7 +1393,8 @@ TRACE_EVENT(sched_enq_deq_task,
 			__entry->rt_nr_running,
 			__entry->cpus_allowed, __entry->demand,
 			__entry->pred_demand_scaled,
-			__entry->compat_thread, __entry->mvp, __entry->misfit)
+			__entry->compat_thread, __entry->mvp, __entry->misfit,
+			__entry->big_task_pid)
 );
 
 TRACE_EVENT(walt_window_rollover,
@@ -2156,6 +2160,27 @@ TRACE_EVENT(freq_qos_request,
 			__get_str(variation), __entry->addr, __entry->type, __entry->val)
 );
 
+TRACE_EVENT(walt_obet,
+
+	TP_PROTO(int cpu, pid_t big_task_pid),
+
+	TP_ARGS(cpu, big_task_pid),
+
+	TP_STRUCT__entry(
+		__field(int,	cpu)
+		__field(pid_t,	big_task_pid)
+		),
+
+	TP_fast_assign(
+		__entry->cpu	= cpu;
+		__entry->big_task_pid	= big_task_pid;
+		),
+
+
+	TP_printk("cpu=%d big_task_pid=%d",
+		__entry->cpu,
+		__entry->big_task_pid)
+);
 
 #endif /* _TRACE_WALT_H */
 
