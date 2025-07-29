@@ -21,7 +21,7 @@ unsigned int gold_cluster_id, prime_cluster_id;
 unsigned int soc_cluster_freq_table_size[MAX_CLUSTERS];
 unsigned int soc_cluster_freq_table[MAX_CLUSTERS][MAX_FREQ_TABLE_ENTRIES];
 unsigned int demand_scaling_factor;
-
+unsigned int min_demand_for_activity_cnt;
 void walt_config(void)
 {
 	int i, j, cpu;
@@ -54,9 +54,13 @@ void walt_config(void)
 	sysctl_max_freq_partial_halt = FREQ_QOS_MAX_DEFAULT_VALUE;
 	sysctl_topapp_weight_pct = 100;
 	asym_cap_sibling_cpus = CPU_MASK_NONE;
-	pipeline_sync_cpus = CPU_MASK_NONE;
 	storage_boost_cpus = CPU_MASK_NONE;
+
+	/* pipeline defaults */
+	pipeline_sync_cpus = CPU_MASK_NONE;
 	demand_scaling_factor = 100;
+	min_demand_for_activity_cnt = 50;
+
 	for_each_possible_cpu(cpu) {
 		for (i = 0; i < LEGACY_SMART_FREQ; i++) {
 			if (i)
