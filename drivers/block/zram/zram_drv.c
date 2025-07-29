@@ -1766,7 +1766,7 @@ static int _zram_req_queue_overflow_list_insert(struct qpace_control *qpace_ctl,
 	struct qpace_request_queue_overflow_list_entry *entry = kzalloc(sizeof(*entry), GFP_NOIO);
 
 	if (!entry) {
-		pr_err("%s: mem-alloc failure\n", __func__);
+		pr_err_ratelimited("%s: mem-alloc failure\n", __func__);
 		return -ENOMEM;
 	}
 
