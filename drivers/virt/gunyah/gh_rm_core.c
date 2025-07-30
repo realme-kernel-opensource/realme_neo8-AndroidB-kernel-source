@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  */
 
@@ -409,9 +409,24 @@ int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 }
 EXPORT_SYMBOL_GPL(gh_rm_get_vm_id_info);
 
+/*
+ * When VMs are launched with AVF, the vIRQ to Linux IRQ mapping happens
+ * from both GKI vm_mgr and vendor gh_rm_core drivers. The Linux IRQ framework
+ * handles the duplicate conversion requests. However, freeing in both drivers
+ * can cause problems when multiple VMs are launched and tear down in parallel.
+ * The first freeing which happens in vendor driver will make the Linux IRQ
+ * available for grab and can be used by another VM that is starting. When GKI
+ * driver frees it later, it results in freeing a mapping that is active with
+ * other VM. gh_rm_core_skip_irq_cleanup will be set to true when VMs are
+ * launched with AVF on primary VM.
+ */
+static bool gh_rm_core_skip_irq_cleanup;
 static void
 gh_rm_put_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry, int irq)
 {
+	if (gh_rm_core_skip_irq_cleanup)
+		return;
+
 	if (!gh_put_irq(irq))
 		gh_rm_vm_irq_release(res_entry->virq_handle);
 
@@ -1222,6 +1237,7 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 #ifdef CONFIG_QTVM_WITH_AVF
 		gh_rm_register_notifier(&gh_rm_status_nb);
 		gh_register_vm_notifier(&gh_vm_status_nb);
+		gh_rm_core_skip_irq_cleanup = true;
 #endif
 		gh_rm_core_initialized = true;
 	} else {
