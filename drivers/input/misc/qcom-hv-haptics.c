@@ -722,6 +722,7 @@ struct brake_cfg {
 	enum drv_sig_shape	brake_wf;
 	enum brake_sine_gain	sine_gain;
 	u32			play_length_us;
+	u32			vmax_mv;
 	bool			disabled;
 };
 
@@ -3670,20 +3671,8 @@ static int haptics_erase(struct input_dev *dev, int effect_id)
 restore:
 	play->pattern_src = SRC_INVALID;
 	mutex_unlock(&play->lock);
-	/* Restore Vmax headroom to 1.5V after SPMI play is done */
-	if (chip->wa_flags & RESTORE_VMAX_HDRM_1P5V) {
-		rc = haptics_set_vmax_headroom_mv(chip, VMAX_HDRM_MV_DEFAULT);
-		if (rc)
-			return rc;
-	}
-
 	/* Restore vmax clamp to default off */
 	haptics_set_vmax_clamp(chip, &clamp_cfg);
-
-	/* Set brake settings for SWR mode play to use it later */
-	rc = haptics_set_brake(chip, &chip->config.swr_brake);
-	if (rc < 0)
-		dev_err(chip->dev, "set brake for SWR mode failed\n");
 
 	/* Restore SWR play mode after SPMI play is done or any faults */
 	if (chip->wa_flags & IGNORE_SWR_IN_SPMI_PLAY)
@@ -5237,8 +5226,25 @@ static int haptics_parse_brake_dt(struct haptics_chip *chip)
 			config->brake.disabled = true;
 	}
 
-	config->swr_brake.mode = AUTO_BRAKE;
-	of_property_read_u32(node, "qcom,swr-brake-mode", &config->swr_brake.mode);
+	rc = of_property_read_u32(node, "qcom,swr-brake-mode", &config->swr_brake.mode);
+	if (rc < 0) {
+		config->swr_brake.disabled = true;
+		return 0;
+	}
+
+	rc = of_property_read_u32(node, "qcom,swr-brake-vmax-mv",
+				 &config->swr_brake.vmax_mv);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read swr-brake-vmax-mv failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (config->swr_brake.vmax_mv >= MAX_VMAX_MV) {
+		dev_err(chip->dev, "qcom,swr-brake-vmax-mv (%d) exceed the max value: %d\n",
+			config->swr_brake.vmax_mv, MAX_VMAX_MV);
+		return -EINVAL;
+	}
+
 	if (config->swr_brake.mode < AUTO_BRAKE) {
 		tmp = of_property_count_u8_elems(node, "qcom,swr-brake-pattern");
 		if (tmp > BRAKE_SAMPLE_COUNT) {
@@ -5425,6 +5431,31 @@ free_pbs:
 	return rc;
 }
 
+static int haptics_swr_play_preparation(struct haptics_chip *chip)
+{
+	int rc;
+
+	if (chip->hw_type < HAP530_HV)
+		return 0;
+
+	/* Set Vmax headroom to 1.5V before SWR mode play */
+	if (chip->wa_flags & RESTORE_VMAX_HDRM_1P5V) {
+		rc = haptics_set_vmax_headroom_mv(chip, VMAX_HDRM_MV_DEFAULT);
+		if (rc)
+			return rc;
+	}
+
+	/* Set Vmax for SWR mode brake */
+	rc = haptics_set_vmax_mv(chip, chip->config.swr_brake.vmax_mv);
+	if (rc < 0) {
+		dev_err(chip->dev, "set Vmax for SWR mode failed\n");
+		return rc;
+	}
+
+	/* Set brake settings for SWR mode play to use it later */
+	return haptics_set_brake(chip, &chip->config.swr_brake);
+}
+
 static int swr_slave_reg_enable(struct regulator_dev *rdev)
 {
 	struct haptics_chip *chip = rdev_get_drvdata(rdev);
@@ -5451,6 +5482,10 @@ static int swr_slave_reg_enable(struct regulator_dev *rdev)
 				rc);
 		goto auto_suspend;
 	}
+
+	rc = haptics_swr_play_preparation(chip);
+	if (rc < 0)
+		goto auto_suspend;
 
 	if (!(chip->wa_flags & RECOVER_SWR_SLAVE))
 		goto done;
