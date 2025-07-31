@@ -83,6 +83,7 @@ struct sched_avg_stats *sched_get_nr_running_avg(void)
 	bool any_hyst_time = false;
 	struct walt_sched_cluster *cluster;
 	bool trailblazer_boost_cpu = false;
+	bool large_cpu_cap_low = is_large_cpu_cap_low();
 
 	if (unlikely(walt_disabled))
 		return NULL;
@@ -97,7 +98,8 @@ struct sched_avg_stats *sched_get_nr_running_avg(void)
 
 		trailblazer_boost_cpu |= (walt_trailblazer_tasks(cpu) &&
 				cpumask_test_cpu(cpu, &cpu_array[0][num_sched_clusters-1]) &&
-				per_cpu(ipc_cnt, cpu) >= TRAILBLAZER_BOOST_THRESH_IPC);
+				per_cpu(ipc_cnt, cpu) >= TRAILBLAZER_BOOST_THRESH_IPC &&
+				!large_cpu_cap_low);
 
 		spin_lock_irqsave(&per_cpu(nr_lock, cpu), flags);
 		curr_time = sched_clock();

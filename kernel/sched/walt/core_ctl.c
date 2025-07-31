@@ -1395,6 +1395,9 @@ static inline bool core_ctl_is_sbt(int prev_is_sbt_windows, u32 wakeup_ctr_sum)
 	if (!any_large_above_util_threshold(SBT_CPU_BUSY_UTIL_THRESH))
 		goto out;
 
+	if (is_large_cpu_cap_low())
+		goto out;
+
 	ret = true;
 out:
 	trace_core_ctl_sbt(&cpus_for_sbt_pause, prev_is_sbt, ret,
