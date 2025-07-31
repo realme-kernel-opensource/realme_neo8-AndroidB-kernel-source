@@ -1158,6 +1158,7 @@ static void walt_sched_newidle_balance(void *unused, struct rq *this_rq,
 		walt_newidle_balance(this_rq, rf, pulled_task, done, false);
 }
 
+u64 oscillate_ts_ns;
 void sched_walt_oscillate(unsigned int busy_cpu)
 {
 	struct rq *src_rq;
@@ -1220,6 +1221,13 @@ void sched_walt_oscillate(unsigned int busy_cpu)
 			goto out_fail;
 		} else {
 			wake_up_if_idle(dst_cpu);
+			/* This api is called from the FAST interrupt
+			 * to initiate oscillation - use the irqtime
+			 * start for timestamp instead of reading
+			 * from the clock hw.
+			 */
+			oscillate_ts_ns = (per_cpu(cpu_irqtime,
+						raw_smp_processor_id())).irq_start_time;
 		}
 		goto out;
 	} else {
