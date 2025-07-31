@@ -5290,10 +5290,12 @@ bool is_sbt_or_oscillate(void)
 	return now_is_sbt || (oscillate_cpu != -1);
 }
 
+#define OSCILLATE_HYSTERESIS_NS 16000000
 bool should_boost_bus_dcvs(void)
 {
 	bool trailblazer_boost_active = false;
 	bool sbt_boost_active = false;
+	bool oscillate_boost_active = false;
 	u64 now = walt_sched_clock();
 
 	if (trailblazer_boost_state_ns + TRAILBLAZER_BOOST_THRESH_NS >= now)
@@ -5302,9 +5304,13 @@ bool should_boost_bus_dcvs(void)
 	if (sbt_boost_ns + SBT_BOOST_THRESH_NS >= now)
 		sbt_boost_active = true;
 
-	trace_sched_boost_bus_dcvs(oscillate_cpu, trailblazer_boost_active, sbt_boost_active);
+	if (oscillate_ts_ns + OSCILLATE_HYSTERESIS_NS >= now)
+		oscillate_boost_active = true;
 
-	return (oscillate_cpu != -1) || is_storage_boost() || trailblazer_boost_active ||
+	trace_sched_boost_bus_dcvs(oscillate_boost_active, trailblazer_boost_active,
+			sbt_boost_active);
+
+	return oscillate_boost_active || is_storage_boost() || trailblazer_boost_active ||
 		sbt_boost_active;
 }
 EXPORT_SYMBOL_GPL(should_boost_bus_dcvs);
