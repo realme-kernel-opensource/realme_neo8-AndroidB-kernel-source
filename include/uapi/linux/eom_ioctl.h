@@ -4,6 +4,8 @@
 #ifndef EOM_IOCTL_H
 #define EOM_IOCTL_H
 
+#include <linux/types.h>
+
 /* Ioctl commands */
 #define EOM_IOCTL_SELECT_DEVICE _IOW('E', 1, struct eom_select_device)
 #define EOM_IOCTL_START_EOM _IO('E', 2)
@@ -30,11 +32,11 @@ static const char *eom_device_names[TYPE_MAX] = {
 struct eom_select_device {
 	/* PCIe or USB device name */
 	char name[32];
-	u8 type;
-	u16 index;
-	u32 vendor_id;
-	u32 device_id;
-	u32 dwell_time_us;
+	__u8 type;
+	__u16 index;
+	__u32 vendor_id;
+	__u32 device_id;
+	__u32 dwell_time_us;
 };
 
 #endif
