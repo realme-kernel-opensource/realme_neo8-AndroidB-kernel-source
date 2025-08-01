@@ -48,7 +48,7 @@
 #define QCOM_ICE_REG_HWKM_BANK0_BBAC_4			0x5010
 
 /* QCOM ICE HWKM BIST vals */
-#define QCOM_ICE_HWKM_BIST_DONE_V1_VAL		0x11
+#define QCOM_ICE_HWKM_BIST_DONE_V1_VAL		0x14007
 #define QCOM_ICE_HWKM_BIST_DONE_V2_VAL		0x287
 
 /* BIST ("built-in self-test") status flags */
