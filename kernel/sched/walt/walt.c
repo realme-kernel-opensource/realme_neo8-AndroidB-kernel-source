@@ -4521,6 +4521,7 @@ static void check_obet(void)
 			else
 				per_cpu(big_task_pid, cpu) = -1;
 		}
+		trace_walt_obet(cpu, per_cpu(big_task_pid, cpu));
 	}
 }
 
@@ -5050,7 +5051,8 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq,
 		}
 	}
 
-	trace_sched_enq_deq_task(p, 1, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts));
+	trace_sched_enq_deq_task(p, 1, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts),
+			per_cpu(big_task_pid, rq->cpu));
 }
 
 static void android_rvh_dequeue_task(void *unused, struct rq *rq,
@@ -5122,7 +5124,8 @@ static void android_rvh_dequeue_task(void *unused, struct rq *rq,
 			waltgov_run_callback(rq, WALT_CPUFREQ_UCLAMP_BIT);
 		}
 	}
-	trace_sched_enq_deq_task(p, 0, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts));
+	trace_sched_enq_deq_task(p, 0, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts),
+			per_cpu(big_task_pid, rq->cpu));
 }
 
 static void android_rvh_update_misfit_status(void *unused, struct task_struct *p,
