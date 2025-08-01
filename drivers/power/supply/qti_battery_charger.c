@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 #define pr_fmt(fmt)	"BATTERY_CHG: %s: " fmt, __func__
 
@@ -2200,6 +2200,29 @@ static ssize_t battery_parallel_cell_count_show(const struct class *c,
 }
 static CLASS_ATTR_RO(battery_parallel_cell_count);
 
+static ssize_t battery_chg_notify_store(const struct class *c,
+					const struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	bool val;
+
+	if (kstrtobool(buf, &val))
+		return -EINVAL;
+
+	if (val) {
+		bcdev->notify_en = false;
+		battery_chg_notify_enable(bcdev);
+	} else {
+		bcdev->notify_en = true;
+		battery_chg_notify_disable(bcdev);
+	}
+
+	return count;
+}
+static CLASS_ATTR_WO(battery_chg_notify);
+
 static struct attribute *battery_class_attrs[] = {
 	&class_attr_soh.attr,
 	&class_attr_resistance.attr,
@@ -2223,6 +2246,31 @@ static struct attribute *battery_class_attrs[] = {
 	NULL,
 };
 ATTRIBUTE_GROUPS(battery_class);
+
+static struct attribute *battery_class_pmw6100_attrs[] = {
+	&class_attr_soh.attr,
+	&class_attr_resistance.attr,
+	&class_attr_moisture_detection_status.attr,
+	&class_attr_moisture_detection_en.attr,
+	&class_attr_wireless_boost_en.attr,
+	&class_attr_fake_soc.attr,
+	&class_attr_wireless_fw_update.attr,
+	&class_attr_wireless_fw_force_update.attr,
+	&class_attr_wireless_fw_version.attr,
+	&class_attr_wireless_fw_crc.attr,
+	&class_attr_wireless_fw_update_time_ms.attr,
+	&class_attr_wireless_type.attr,
+	&class_attr_ship_mode_en.attr,
+	&class_attr_restrict_chg.attr,
+	&class_attr_restrict_cur.attr,
+	&class_attr_usb_real_type.attr,
+	&class_attr_usb_typec_compliant.attr,
+	&class_attr_charge_control_en.attr,
+	&class_attr_battery_parallel_cell_count.attr,
+	&class_attr_battery_chg_notify.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(battery_class_pmw6100);
 
 #ifdef CONFIG_DEBUG_FS
 static void battery_chg_add_debugfs(struct battery_chg_dev *bcdev)
@@ -2570,7 +2618,12 @@ static int battery_chg_probe(struct platform_device *pdev)
 		goto error;
 
 	bcdev->battery_class.name = "qcom-battery";
-	bcdev->battery_class.class_groups = battery_class_groups;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,pmw6100-battery-charger"))
+		bcdev->battery_class.class_groups = battery_class_pmw6100_groups;
+	else
+		bcdev->battery_class.class_groups = battery_class_groups;
+
 	rc = class_register(&bcdev->battery_class);
 	if (rc < 0) {
 		dev_err(dev, "Failed to create battery_class rc=%d\n", rc);
@@ -2642,6 +2695,7 @@ static void battery_chg_remove(struct platform_device *pdev)
 
 static const struct of_device_id battery_chg_match_table[] = {
 	{ .compatible = "qcom,battery-charger" },
+	{ .compatible = "qcom,pmw6100-battery-charger" },
 	{},
 };
 
