@@ -1555,7 +1555,7 @@ def register_modules(registry):
     registry.register(
         name = "drivers/soc/qcom/spmi-pmic-err-debug",
         out = "spmi-pmic-err-debug.ko",
-        config = "CONFIG_SPMI_PMIC_ERR_DBG",
+        config = "CONFIG_QCOM_SPMI_PMIC_ERR_DBG",
         srcs = [
             # do not sort
             "drivers/soc/qcom/spmi-pmic-err-debug.c",
