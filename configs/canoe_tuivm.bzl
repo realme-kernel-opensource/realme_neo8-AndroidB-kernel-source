@@ -48,6 +48,7 @@ canoe_tuivm_config = {
     "CONFIG_QCOM_PANEL_EVENT_NOTIFIER": "y",
     "CONFIG_QCOM_SCM": "m",
     "CONFIG_QCOM_SI_CORE": "m",
+    "CONFIG_QCOM_SI_CORE_ADCI": "y",
     "CONFIG_QCOM_SI_CORE_MEM_OBJECT": "m",
     "CONFIG_QCOM_SI_CORE_WQ": "y",
     "CONFIG_QCOM_SOC_WATCHDOG": "m",

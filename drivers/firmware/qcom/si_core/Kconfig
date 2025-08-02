@@ -31,3 +31,20 @@ config QCOM_SI_CORE_MEM_OBJECT
 	  to create memory object and do the necessary mapping and unmapping
 	  using QTEE shared memory bridge driver.
 
+config QCOM_SI_CORE_ADCI
+	bool "Use ADCI thread to cater service requests from other VMs"
+	depends on QCOM_SI_CORE
+	help
+	  Use a kernel thread to register callback service to QTEE that
+	  will cater requests initiated by other VMs requiring services
+	  hosted by primary VM.
+
+	  This option should not be enabled on guest virtual machines.
+	  The initialization and shutdown of the ADCI thread within the
+	  SI Core component are unnecessary in guest VM environments, as
+	  the host operating system typically handles ADCI functionality.
+
+	  Enable this option if there are multiple VMs and services are
+	  hosted only by primary VM.
+
+	  Disable this option to avoid ADCI thread management in guest VMs.

@@ -135,6 +135,7 @@ vienna_perf_config = {
     "CONFIG_QCOM_SECURE_HIBERNATION": "m",
     "CONFIG_QCOM_SHOW_RESUME_IRQ": "m",
     "CONFIG_QCOM_SI_CORE": "m",
+    "CONFIG_QCOM_SI_CORE_ADCI": "y",
     "CONFIG_QCOM_SI_CORE_MEM_OBJECT": "m",
     "CONFIG_QCOM_SI_CORE_WQ": "y",
     "CONFIG_QCOM_SMEM": "m",
