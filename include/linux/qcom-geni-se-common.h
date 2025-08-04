@@ -12,6 +12,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/sched/clock.h>
 #include <linux/ipc_logging.h>
+#include <linux/platform_device.h>
 
 #ifdef CONFIG_ARM64
 #define GENI_SE_DMA_PTR_L(ptr) ((u32)ptr)
@@ -51,6 +52,9 @@ if (print) { \
 #define	GENI_SE_QSPI		0x9
 
 #define IMMEDIATE_DMA_LEN	8
+
+#define QTIMER_BIN		(0x220)
+#define TIMESTAMP_DATA_SIZE	8
 
 /* In KHz */
 #define DEFAULT_SE_CLK	19200
@@ -217,6 +221,46 @@ static inline int geni_common_icc_set_bw(struct geni_se *se, void *ipcl)
 
 		ipc_log_string(ipcl, "ICC BW voting on path: %s, avg_bw: %u, peak_bw: %u\n",
 			       icc_path_names[i], avg_bw, peak_bw);
+	}
+
+	return 0;
+}
+
+/**
+ * geni_common_reg_dma_addr() - Maps a hardware register for DMA access
+ * @dev: Pointer to the device
+ * @iova: Pointer to store the mapped DMA address
+ * @offset: Offset of the register from the wrapper base address
+ * @size: Size of the register
+ *
+ * This function maps a hardware register for DMA access, typically used for
+ * DMA transfers.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static inline int geni_common_reg_dma_addr(struct device *dev, dma_addr_t *iova,
+					   u32 offset, u32 size)
+{
+	struct resource *wrapper_res;
+	phys_addr_t reg_phys_addr;
+	struct platform_device *wrapper_pdev = NULL;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct device *wrapper_dev = pdev->dev.parent;
+
+	if (!wrapper_dev || !dev_is_platform(wrapper_dev)) {
+		dev_err(&pdev->dev,
+			"Parent device for %s is not a platform device\n", dev_name(dev));
+		return -ENODEV;
+	}
+
+	wrapper_pdev = to_platform_device(wrapper_dev);
+
+	wrapper_res = platform_get_resource(wrapper_pdev, IORESOURCE_MEM, 0);
+	reg_phys_addr = wrapper_res->start + offset;
+	*iova = dma_map_resource(wrapper_dev, reg_phys_addr, size, DMA_TO_DEVICE, 0);
+	if (dma_mapping_error(wrapper_dev, *iova)) {
+		dev_err(&pdev->dev, "dma_map_resource %pK failed\n", iova);
+		return -EIO;
 	}
 
 	return 0;
