@@ -2361,6 +2361,7 @@ static void update_lst(struct walt_task_struct *wts, u64 wallclock,
 
 }
 
+static void update_obet_task(struct task_struct *p, struct rq *rq, u32 demand);
 /*
  * Called when new window is starting for a task, to record cpu usage over
  * recently concluded window(s). Normally 'samples' should be 1. It can be > 1
@@ -2424,6 +2425,8 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	if (walt_fair_task(p) && task_in_related_thread_group(p))
 		update_trailblazer_accounting(p, rq, runtime, runtime_scaled,
 				&demand, &trailblazer_demand);
+	if (walt_fair_task(p))
+		update_obet_task(p, rq, demand);
 	pred_demand_scaled = predict_and_update_buckets(p, runtime_scaled);
 	demand_scaled = scale_time_to_util(demand);
 
@@ -4458,6 +4461,24 @@ static void android_rvh_update_cpu_capacity(void *unused, int cpu, unsigned long
 DEFINE_PER_CPU(pid_t, big_task_pid);
 bool is_obet;
 
+/* Indicates that a task possibly grew up in size on a prime cpu while it remains
+ * on prime, i.e. no enqueue after growing big. This needs reeval of big_task_pid
+ * on that cpu during window rollover.
+ */
+DEFINE_PER_CPU(bool, force_big_task_pid_eval);
+
+static void update_obet_task(struct task_struct *p, struct rq *rq, u32 demand)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *)android_task_vendor_data(p);
+	int cpu = task_cpu(p);
+
+	if (is_max_possible_cluster_cpu(cpu) &&
+		per_cpu(big_task_pid, cpu) == 0 &&
+		task_is_runnable(p) &&
+		wts->demand < demand)
+		per_cpu(force_big_task_pid_eval, cpu) = true;
+}
+
 /*
  * check_obet() needs to be called with all the rq locks held.
  * It resets per cpu big_task_pid and does cpu checks on a
@@ -4496,7 +4517,7 @@ static void check_obet(void)
 	for_each_cpu(cpu, &cpu_array[0][num_sched_clusters - 1]) {
 		pid_t pid = per_cpu(big_task_pid, cpu);
 
-		if (pid) {
+		if (pid || per_cpu(force_big_task_pid_eval, cpu)) {
 			int task_count = 0;
 			int big_task_count = 0;
 
@@ -4521,6 +4542,7 @@ static void check_obet(void)
 			else
 				per_cpu(big_task_pid, cpu) = -1;
 		}
+		per_cpu(force_big_task_pid_eval, cpu) = false;
 		trace_walt_obet(cpu, per_cpu(big_task_pid, cpu));
 	}
 }
