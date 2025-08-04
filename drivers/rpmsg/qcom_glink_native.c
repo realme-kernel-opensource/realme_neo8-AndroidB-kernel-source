@@ -239,6 +239,7 @@ struct glink_channel {
 
 	struct completion open_ack;
 	struct completion open_req;
+	struct completion close_ack;
 
 	struct mutex intent_req_lock;
 	int intent_req_result;
@@ -308,6 +309,8 @@ static struct glink_channel *qcom_glink_alloc_channel(struct qcom_glink *glink,
 
 	init_completion(&channel->open_req);
 	init_completion(&channel->open_ack);
+	init_completion(&channel->close_ack);
+	complete_all(&channel->close_ack);
 	init_waitqueue_head(&channel->intent_req_wq);
 	channel->intent_timeout_count = 0;
 
@@ -648,6 +651,7 @@ static void qcom_glink_send_close_ack(struct qcom_glink *glink,
 	req.param2 = 0;
 
 	GLINK_INFO(glink->ilc, "rcid:%d\n", channel->rcid);
+	complete_all(&channel->close_ack);
 	qcom_glink_tx(glink, &req, sizeof(req), NULL, 0, true);
 }
 
@@ -1505,6 +1509,7 @@ static int qcom_glink_rx_open_ack(struct qcom_glink *glink, unsigned int lcid)
 
 	CH_INFO(channel, "\n");
 	complete_all(&channel->open_ack);
+	reinit_completion(&channel->close_ack);
 	qcom_glink_channel_ref_put(channel);
 	return 0;
 }
@@ -1745,6 +1750,12 @@ static int qcom_glink_create_remote(struct qcom_glink *glink,
 	int ret;
 
 	CH_INFO(channel, "\n");
+
+	ret = wait_for_completion_timeout(&channel->close_ack, 5 * HZ);
+	if (!ret) {
+		ret = -ETIMEDOUT;
+		goto close_link;
+	}
 
 	ret = qcom_glink_send_open_req(glink, channel);
 	if (ret)
