@@ -1243,7 +1243,15 @@ static void walt_find_new_ilb(void *unused, struct cpumask *nohz_idle_cpus_mask,
 	if (unlikely(walt_disabled))
 		return;
 
+	/*
+	 * if WALT doesn't find any target cpu return nr_cpu_ids this let's
+	 * scheduler core to find a cpu if WALT fails to find any target
+	 * cpu from lower clusters(non-prime).
+	 * This may result in scheduler core selecting a prime core.
+	 */
 	*ilb = nr_cpu_ids;
+
+	/* only scan nohz_idle cpus in non-prime clusters in first pass */
 	for (i = 0; i < num_sched_clusters - 1; i++) {
 		for_each_cpu_and(cpu, nohz_idle_cpus_mask, &cpu_array[0][i]) {
 			if (cpu == smp_processor_id())
@@ -1255,6 +1263,7 @@ static void walt_find_new_ilb(void *unused, struct cpumask *nohz_idle_cpus_mask,
 		}
 	}
 
+	/* scan all idle cpus in non-prime clusters in second pass */
 	for (i = 0; i < num_sched_clusters - 1; i++) {
 		for_each_cpu(cpu, &cpu_array[0][i]) {
 			if (cpu == smp_processor_id())
