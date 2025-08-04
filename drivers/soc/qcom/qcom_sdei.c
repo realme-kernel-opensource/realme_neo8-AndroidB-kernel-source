@@ -14,6 +14,7 @@
 #include <linux/arm_sdei.h>
 #include <linux/sched/debug.h>
 #include <linux/arm-smccc.h>
+#include <linux/delay.h>
 #include <uapi/linux/psci.h>
 
 #define SDEI_EVENT_STANDARD		0x0
@@ -22,15 +23,14 @@
 #define SDEI_1_0_FN_SDEI_EVENT_SIGNAL	0xC400002F
 
 static DEFINE_PER_CPU(u64, cpu_mpidr);
-static DEFINE_PER_CPU(struct pt_regs, regs_before_sdei);
 
 static int sdei_standard_cb(u32 event, struct pt_regs *regs, void *arg)
 {
-	unsigned int cpu = smp_processor_id();
+	int cpu = smp_processor_id();
 
 	pr_crit("SDEI event 0x%x triggered on cpu %d\n", event, cpu);
 
-	per_cpu(regs_before_sdei, cpu) = *regs;
+	show_regs(regs);
 
 	return 0;
 }
@@ -76,16 +76,13 @@ static int sdei_wdg_bite_cb(u32 event, struct pt_regs *regs, void *arg)
 
 	pr_crit("SDEI event 0x%x triggered on cpu %d\n", event, smp_processor_id());
 
-	for_each_possible_cpu(cpu)
-		sdei_event_signal(per_cpu(cpu_mpidr, cpu));
-
 	show_regs(regs);
 
 	for_each_possible_cpu(cpu) {
 		if (cpu == smp_processor_id())
 			continue;
-		pr_crit("Dumping call stack on CPU %d\n", cpu);
-		show_regs(&per_cpu(regs_before_sdei, cpu));
+		sdei_event_signal(per_cpu(cpu_mpidr, cpu));
+		mdelay(1);
 	}
 
 	psci_system_reset();
