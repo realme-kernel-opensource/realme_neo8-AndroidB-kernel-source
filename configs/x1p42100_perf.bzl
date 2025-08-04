@@ -56,6 +56,7 @@ x1p42100_perf_config = {
     "CONFIG_MHI_WWAN_CTRL": "n",
     "CONFIG_MHI_WWAN_MBIM": "n",
     "CONFIG_MINIDUMP_MAX_ENTRIES": "200",
+    "CONFIG_MSM_BOOT_STATS": "m",
     "CONFIG_MSM_PERFORMANCE": "m",
     "CONFIG_MSM_QMP": "m",
     "CONFIG_MSM_SYSSTATS": "m",
