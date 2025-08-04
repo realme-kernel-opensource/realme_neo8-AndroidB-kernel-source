@@ -107,6 +107,9 @@ struct walt_task_struct {
 	 *
 	 * 'prev_on_rq' tracks enqueue/dequeue of a task for error conditions
 	 * 0 = nothing, 1 = enqueued, 2 = dequeued
+	 *
+	 * 'lib_app_state' tracks if task is a lib based application
+	 * <bit 7>: result of lib evaluation, <bit 6-0>: lib name update count
 	 */
 	u32				flags;
 	u64				mark_start;
@@ -170,6 +173,8 @@ struct walt_task_struct {
 	bool				lst;
 	u32				pipeline_activity_cnt;
 	atomic_t			event_windows;
+	u8				lib_app_state;
+
 };
 
 #define wts_to_ts(wts) ({ \

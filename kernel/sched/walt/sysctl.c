@@ -224,6 +224,37 @@ unlock_mutex:
 	return ret;
 }
 
+u8 lib_update_cnt;
+static int walt_lib_name_handler(const struct ctl_table *table, int write,
+				       void __user *buffer, size_t *lenp,
+				       loff_t *ppos)
+{
+	int ret;
+	static DEFINE_MUTEX(mutex);
+	char old_path[LIB_PATH_LENGTH];
+
+	mutex_lock(&mutex);
+
+	if (!write) {
+		ret = proc_dostring(table, write, buffer, lenp, ppos);
+		goto unlock_mutex;
+	}
+
+	strscpy(old_path, sched_lib_name, sizeof(old_path));
+	ret = proc_dostring(table, write, buffer, lenp, ppos);
+	if (ret)
+		goto unlock_mutex;
+
+	/* update count if there is change in library list */
+	if (strcmp(old_path, sched_lib_name))
+		lib_update_cnt = (lib_update_cnt + 1) % LIB_UPDATE_CNT_MAX;
+
+unlock_mutex:
+	mutex_unlock(&mutex);
+
+	return ret;
+}
+
 static int walt_proc_user_hint_handler(const struct ctl_table *table,
 				int write, void __user *buffer, size_t *lenp,
 				loff_t *ppos)
@@ -1993,7 +2024,7 @@ static struct ctl_table walt_table[] = {
 		.data		= sched_lib_name,
 		.maxlen		= LIB_PATH_LENGTH,
 		.mode		= 0644,
-		.proc_handler	= proc_dostring,
+		.proc_handler	= walt_lib_name_handler,
 	},
 	{
 		.procname	= "sched_lib_task",
