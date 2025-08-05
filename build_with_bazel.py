@@ -306,6 +306,7 @@ class BazelBuilder:
             extra_options=["--config=gbl"],
         )
 
+
     def write_opts(self, out_dir):
         with open(os.path.join(out_dir, "build_opts.txt"), "w") as opt_file:
             if self.user_opts:
@@ -349,6 +350,7 @@ class BazelBuilder:
 
         if not self.dry_run:
             self.run_targets(targets_to_build)
+            self.build_run_gbl()
 
 def build_gvm_image(variant):
     VM_BOOTLOADER_SRC = None
@@ -422,11 +424,6 @@ def main():
         action="store_true",
         help="(DEPRECATED) Compile with common headers instead of msm-kernel"
     )
-    parser.add_argument(
-        "--build_gbl",
-        action="store_true",
-        help="Compile GBL"
-    )
 
     args, user_opts = parser.parse_known_args(sys.argv[1:])
 
@@ -452,8 +449,6 @@ def main():
     try:
         if args.menuconfig:
             builder.run_menuconfig()
-        elif args.build_gbl:
-            builder.build_run_gbl()
         else:
             builder.build()
     except KeyboardInterrupt:
