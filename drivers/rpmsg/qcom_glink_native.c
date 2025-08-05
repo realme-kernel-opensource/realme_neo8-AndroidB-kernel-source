@@ -1237,6 +1237,7 @@ out:
 	spin_unlock(&channel->recv_lock);
 
 	wake_up_interruptible(&channel->rx_wq);
+	channel->buf = NULL;
 }
 
 static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail, unsigned int iters)
