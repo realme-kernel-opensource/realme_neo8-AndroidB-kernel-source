@@ -96,8 +96,6 @@ static DEFINE_RWLOCK(related_thread_group_lock);
 
 #define sub_clamp(a, b) (((a) < (b)) ? 0 : (a) - (b))
 
-u64 sbt_boost_ns;
-
 bool walt_is_idle_task(struct task_struct *p)
 {
 	return walt_flag_test(p, WALT_IDLE_TASK_BIT);
@@ -757,6 +755,7 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *rea
 			walt_load->ed_active = true;
 		else
 			walt_load->ed_active = false;
+		walt_load->trailblazer_state = trailblazer_state;
 		walt_load->non_boosted_load = non_boosted_load;
 		walt_load->trailblazer_boost_state = trailblazer_boost_state_ns ? true : false;
 	}
@@ -2244,7 +2243,7 @@ static inline u32 scale_util_to_time(u16 util)
 	return util * walt_scale_demand_divisor;
 }
 
-#define PIPELINE_IDLE_MS 3000000000
+#define PIPELINE_IDLE_MS 100000000
 static void update_trailblazer_accounting(struct task_struct *p, struct rq *rq,
 		u32 runtime, u16 runtime_scaled, u32 *demand, u16 *trailblazer_demand)
 {
@@ -4644,13 +4643,6 @@ static void walt_irq_work(struct irq_work *irq_work)
 		check_obet_set_boost();
 		if (trailblazer_boost_state_ns + TRAILBLAZER_BOOST_THRESH_NS < wrq->window_start)
 			trailblazer_boost_state_ns = 0;
-
-		if (now_is_sbt) {
-			sbt_boost_ns = wrq->window_start;
-		} else {
-			if (sbt_boost_ns + SBT_BOOST_THRESH_NS < wrq->window_start)
-				sbt_boost_ns = 0;
-		}
 	}
 }
 
@@ -5256,19 +5248,13 @@ bool is_sbt_or_oscillate(void)
 bool should_boost_bus_dcvs(void)
 {
 	bool trailblazer_boost_active = false;
-	bool sbt_boost_active = false;
-	u64 now = walt_sched_clock();
 
-	if (trailblazer_boost_state_ns + TRAILBLAZER_BOOST_THRESH_NS >= now)
+	if (trailblazer_boost_state_ns + TRAILBLAZER_BOOST_THRESH_NS >= walt_sched_clock())
 		trailblazer_boost_active = true;
 
-	if (sbt_boost_ns + SBT_BOOST_THRESH_NS >= now)
-		sbt_boost_active = true;
+	trace_sched_boost_bus_dcvs(oscillate_cpu, trailblazer_boost_active);
 
-	trace_sched_boost_bus_dcvs(oscillate_cpu, trailblazer_boost_active, sbt_boost_active);
-
-	return (oscillate_cpu != -1) || is_storage_boost() || trailblazer_boost_active ||
-		sbt_boost_active;
+	return (oscillate_cpu != -1) || is_storage_boost() || trailblazer_boost_active;
 }
 EXPORT_SYMBOL_GPL(should_boost_bus_dcvs);
 
