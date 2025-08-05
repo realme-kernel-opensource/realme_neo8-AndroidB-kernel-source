@@ -21,6 +21,9 @@
 #include "qpace-reg-accessors.h"
 #include "qpace.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/qpace.h>
+
 #define QPACE_REG_PAGE_SIZE (1 << 12)
 
 /*
@@ -297,6 +300,9 @@ int qpace_urgent_decompress(phys_addr_t input_addr,
 	u32 stat_reg, stat_reg_val;
 	bool use_disjoint_writes = false;
 
+	trace_start_qpace_urgent_decompress((void *) input_addr,
+		(void *) output_addr, input_size);
+
 retry:
 	urg_reg_num = get_cpu();
 	stat_reg = qpace_urgent_command_trigger(input_addr, output_addr, urg_reg_num,
@@ -311,8 +317,15 @@ retry:
 		}
 		pr_err("%s: register %d failed with %u\n",
 		       __func__, urg_reg_num, stat_reg_val);
+
+		trace_end_qpace_urgent_decompress((void *) input_addr,
+			(void *) output_addr, input_size, stat_reg_val);
+
 		return -EINVAL;
 	}
+
+	trace_end_qpace_urgent_decompress((void *) input_addr,
+		(void *) output_addr, input_size, stat_reg_val);
 
 	return FIELD_GET(URG_CMD_0_ED_STAT_SIZE, stat_reg);
 }
