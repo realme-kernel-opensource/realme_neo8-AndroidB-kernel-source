@@ -39,6 +39,7 @@ proxy-consumer.ko
 qti-fixed-regulator.ko
 rpmh-regulator.ko
 qcom-dload-mode.ko
+qcom_cpu_vendor_hooks.ko
 mem_buf.ko
 mem_buf_dev.ko
 secure_buffer.ko
