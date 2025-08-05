@@ -104,6 +104,7 @@ gh_rm_heap_manager.ko
 gunyah_loader.ko
 mdt_loader.ko
 qcom_wdt_core.ko
+qcom_sdei.ko
 qcom_tzmem.ko
 icc-clk.ko
 cqhci.ko
