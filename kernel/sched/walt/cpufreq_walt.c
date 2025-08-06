@@ -928,7 +928,21 @@ void update_util_inflate_factor(struct waltgov_tunables *tunables,
 	}
 }
 
-int write_once_zone_max_util_pct_cluster[MAX_CLUSTERS];
+void set_default_zone_util_pct_values(struct waltgov_tunables *tunables,
+		struct waltgov_policy *wg_policy)
+{
+	int i, j;
+
+	for (i = 0; i < MAX_ZONES; i++) {
+		for (j = 0; j < ZONE_TUPLE_SIZE; j++)
+			tunables->zone_util_pct[i][j] = -1;
+
+		wg_policy->zone_util[i].util_thresh = -1;
+		wg_policy->zone_util[i].inflate_factor = -1;
+	}
+}
+
+int cluster_zones_initialized[MAX_CLUSTERS];
 
 static ssize_t zone_max_util_pct_show(struct gov_attr_set *attr_set, char *buf)
 {
@@ -940,7 +954,7 @@ static ssize_t zone_max_util_pct_show(struct gov_attr_set *attr_set, char *buf)
 
 	list_for_each_entry(wg_policy, &attr_set->policy_list, tunables_hook) {
 		cluster = cpu_cluster(wg_policy->policy->cpu);
-		if (!write_once_zone_max_util_pct_cluster[cluster->id]) {
+		if (!cluster_zones_initialized[cluster->id]) {
 			len += scnprintf(buf + len, PAGE_SIZE, "%d %d",
 					INT_MAX, TARGET_LOAD);
 			goto exit;
@@ -976,7 +990,6 @@ static ssize_t zone_max_util_pct_store(struct gov_attr_set *attr_set,
 	char *ex;
 	ssize_t ret;
 	int temp[MAX_ZONES*ZONE_TUPLE_SIZE];
-	int temp2[MAX_ZONES*ZONE_TUPLE_SIZE];
 	int i, j, k;
 	struct walt_sched_cluster *cluster;
 
@@ -1017,72 +1030,21 @@ static ssize_t zone_max_util_pct_store(struct gov_attr_set *attr_set,
 				goto exit;
 		}
 
-		k = 0;
-		/*
-		 * If a user specifies target load to be lower than the previous one
-		 * but we need to maintain the restriction of it being in descending
-		 * order.
-		 */
-		if (write_once_zone_max_util_pct_cluster[cluster->id]) {
-
-			for (i = 0; i < MAX_ZONES; i++) {
-				for (j = 0; j < ZONE_TUPLE_SIZE; j++)
-					temp2[k++] = tunables->zone_util_pct[i][j];
-			}
-
-			for (i = 0; i < MAX_ZONES; i++) {
-
-				if (tunables->zone_util_pct[i][0] == -1)
-					break;
-
-				for (j = 0; j < MAX_ZONES*ZONE_TUPLE_SIZE; j += 2) {
-					if (temp[j] == tunables->zone_util_pct[i][0]) {
-						temp2[(2*i+1)] = temp[j+1];
-						break;
-					}
-				}
-			}
-
-			for (i = 1; i < MAX_ZONES*ZONE_TUPLE_SIZE; i += 2) {
-				if (temp2[i] == -1)
-					break;
-
-				if (temp2[i] < 1 || temp2[i] > 100)
-					goto exit;
-			}
-		}
-		/*
-		 * If a user enters a specified target load percentage for a defined zone already.
-		 * We update it here. If user enters some undefined zone, then that will be ignored.
-		 */
-		if (write_once_zone_max_util_pct_cluster[cluster->id]) {
-			for (i = 0; i < MAX_ZONES; i++) {
-				if (tunables->zone_util_pct[i][0] == -1)
-					break;
-
-				for (j = 0; j < MAX_ZONES*ZONE_TUPLE_SIZE; j += 2) {
-					if (temp[j] == tunables->zone_util_pct[i][0])
-						tunables->zone_util_pct[i][1] = temp[j+1];
-				}
-			}
-		}
+		raw_spin_lock_irqsave(&wg_policy->update_lock, flags);
+		set_default_zone_util_pct_values(tunables, wg_policy);
+		raw_spin_unlock_irqrestore(&wg_policy->update_lock, flags);
 
 		k = 0;
-		/*
-		 * Writing once initially for all the zones defined and equivalent target load.
-		 */
-		if (!write_once_zone_max_util_pct_cluster[cluster->id]) {
-			for (i = 0; i < size/2; i++) {
-				for (j = 0; j < 2; j++)
-					tunables->zone_util_pct[i][j] = temp[k++];
-			}
-			write_once_zone_max_util_pct_cluster[cluster->id] = 1;
+		for (i = 0; i < size/2; i++) {
+			for (j = 0; j < 2; j++)
+				tunables->zone_util_pct[i][j] = temp[k++];
 		}
 
 		ret = count;
 		raw_spin_lock_irqsave(&wg_policy->update_lock, flags);
 		update_util_inflate_factor(tunables, wg_policy);
 		raw_spin_unlock_irqrestore(&wg_policy->update_lock, flags);
+		cluster_zones_initialized[cluster->id] = 1;
 	}
 
 exit:
@@ -1450,6 +1412,7 @@ static int waltgov_init(struct cpufreq_policy *policy)
 	 */
 	memset(tunables->zone_util_pct,
 			-1, sizeof(tunables->zone_util_pct));
+
 	memset(wg_policy->zone_util, -1, sizeof(wg_policy->zone_util));
 
 	if (is_min_possible_cluster_cpu(policy->cpu))
