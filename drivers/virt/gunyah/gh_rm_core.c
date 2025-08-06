@@ -963,7 +963,7 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 
 	switch (vm_status) {
 	case GH_RM_VM_STATUS_READY:
-		pr_err("vm(%d) is ready\n", vm_status_payload->vmid);
+		pr_info("vm(%d) is ready\n", vm_status_payload->vmid);
 		ret = gh_rm_get_vm_id_info(vm_status_payload->vmid);
 		if (ret < 0) {
 			pr_err("Failed to get vmid info for vmid = %d ret = %d\n",
@@ -996,12 +996,12 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 			pr_err("vm(%d) os started running\n", vm_status_payload->vmid);
 			break;
 		default:
-			pr_err("Unknown notification receieved for vmid = %d os_status = %d\n",
+			pr_err("Unknown notification received for vmid = %d os_status = %d\n",
 				vm_status_payload->vmid, os_status);
 		}
 		break;
 	case GH_RM_VM_STATUS_EXITED:
-		pr_err("vm(%d) exited\n", vm_status_payload->vmid);
+		pr_info("vm(%d) exited\n", vm_status_payload->vmid);
 		ret = gh_rm_get_vm_name(vm_status_payload->vmid, &vm_name);
 		if (ret < 0) {
 			pr_err("Failed to get vm name for vmid = %d ret = %d\n",
@@ -1012,7 +1012,7 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 		if (ret < 0)
 			pr_err("Failed to get vminfo of vmname = %u\n", vm_name);
 
-		pr_err("unpopulating vm(%d) exited\n", vm_status_payload->vmid);
+		pr_info("unpopulating vm(%d) exited\n", vm_status_payload->vmid);
 		ret = gh_rm_unpopulate_hyp_res(vm_status_payload->vmid,
 				    vm_info.name);
 		if (ret < 0)
@@ -1021,8 +1021,22 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 
 		gh_complete_vm_cleanup(vm_name);
 		break;
+	case GH_RM_VM_STATUS_INIT:
+	case GH_RM_VM_STATUS_PAUSED:
+	case GH_RM_VM_STATUS_LOAD:
+	case GH_RM_VM_STATUS_AUTH:
+	case GH_RM_VM_STATUS_RESETTING:
+	case GH_RM_VM_STATUS_RESET_FAILED:
+		pr_debug("vm(%d) is in a transitional state\n", vm_status_payload->vmid);
+		break;
+	case GH_RM_VM_STATUS_INIT_FAILED:
+		pr_info("vm(%d) initialization failed\n", vm_status_payload->vmid);
+		break;
+	case GH_RM_VM_STATUS_RESET:
+		pr_info("vm(%d) has been reset\n", vm_status_payload->vmid);
+		break;
 	default:
-		pr_err("Unknown notification receieved for vmid = %d vm_status = %d\n",
+		pr_err("Unknown notification received for vmid = %d vm_status = %d\n",
 				vm_status_payload->vmid, vm_status);
 	}
 
