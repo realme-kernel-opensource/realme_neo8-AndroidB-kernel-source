@@ -96,6 +96,8 @@ static DEFINE_RWLOCK(related_thread_group_lock);
 
 #define sub_clamp(a, b) (((a) < (b)) ? 0 : (a) - (b))
 
+u64 sbt_boost_ns;
+
 bool walt_is_idle_task(struct task_struct *p)
 {
 	return walt_flag_test(p, WALT_IDLE_TASK_BIT);
@@ -755,7 +757,6 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *rea
 			walt_load->ed_active = true;
 		else
 			walt_load->ed_active = false;
-		walt_load->trailblazer_state = trailblazer_state;
 		walt_load->non_boosted_load = non_boosted_load;
 		walt_load->trailblazer_boost_state = trailblazer_boost_state_ns ? true : false;
 	}
@@ -2243,7 +2244,7 @@ static inline u32 scale_util_to_time(u16 util)
 	return util * walt_scale_demand_divisor;
 }
 
-#define PIPELINE_IDLE_MS 100000000
+#define PIPELINE_IDLE_NS 3000000000
 static void update_trailblazer_accounting(struct task_struct *p, struct rq *rq,
 		u32 runtime, u16 runtime_scaled, u32 *demand, u16 *trailblazer_demand)
 {
@@ -2253,7 +2254,7 @@ static void update_trailblazer_accounting(struct task_struct *p, struct rq *rq,
 	u64 trailblazer_capacity;
 
 	if (sysctl_walt_feat(WALT_FEAT_TRAILBLAZER_BIT) &&
-		((wts->mark_start + PIPELINE_IDLE_MS) <  walt_rq_clock(rq)))
+		((wts->mark_start + PIPELINE_IDLE_NS) <  walt_rq_clock(rq)))
 		wts->high_util_history = 0;
 
 	if (!pipeline_in_progress() && sysctl_walt_feat(WALT_FEAT_TRAILBLAZER_BIT) &&
@@ -2420,7 +2421,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 		demand = max(avg, runtime);
 	}
 
-	if (walt_fair_task(p))
+	if (walt_fair_task(p) && task_in_related_thread_group(p))
 		update_trailblazer_accounting(p, rq, runtime, runtime_scaled,
 				&demand, &trailblazer_demand);
 	pred_demand_scaled = predict_and_update_buckets(p, runtime_scaled);
@@ -4520,6 +4521,7 @@ static void check_obet(void)
 			else
 				per_cpu(big_task_pid, cpu) = -1;
 		}
+		trace_walt_obet(cpu, per_cpu(big_task_pid, cpu));
 	}
 }
 
@@ -4643,6 +4645,13 @@ static void walt_irq_work(struct irq_work *irq_work)
 		check_obet_set_boost();
 		if (trailblazer_boost_state_ns + TRAILBLAZER_BOOST_THRESH_NS < wrq->window_start)
 			trailblazer_boost_state_ns = 0;
+
+		if (now_is_sbt) {
+			sbt_boost_ns = wrq->window_start;
+		} else {
+			if (sbt_boost_ns + SBT_BOOST_THRESH_NS < wrq->window_start)
+				sbt_boost_ns = 0;
+		}
 	}
 }
 
@@ -4893,6 +4902,9 @@ static void android_rvh_set_task_cpu(void *unused, struct task_struct *p, unsign
 
 static void android_rvh_new_task_stats(void *unused, struct task_struct *p)
 {
+	if (task_on_scx(p))
+		return;
+
 	if (unlikely(walt_disabled))
 		return;
 	mark_task_starting(p);
@@ -4904,6 +4916,9 @@ static void android_rvh_account_irq(void *unused, struct task_struct *curr, int 
 	struct rq *rq;
 	unsigned long flags;
 	struct walt_rq *wrq;
+
+	if (task_on_scx(curr))
+		return;
 
 	if (unlikely(walt_disabled))
 		return;
@@ -5036,7 +5051,8 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq,
 		}
 	}
 
-	trace_sched_enq_deq_task(p, 1, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts));
+	trace_sched_enq_deq_task(p, 1, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts),
+			per_cpu(big_task_pid, rq->cpu));
 }
 
 static void android_rvh_dequeue_task(void *unused, struct rq *rq,
@@ -5108,7 +5124,8 @@ static void android_rvh_dequeue_task(void *unused, struct rq *rq,
 			waltgov_run_callback(rq, WALT_CPUFREQ_UCLAMP_BIT);
 		}
 	}
-	trace_sched_enq_deq_task(p, 0, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts));
+	trace_sched_enq_deq_task(p, 0, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts),
+			per_cpu(big_task_pid, rq->cpu));
 }
 
 static void android_rvh_update_misfit_status(void *unused, struct task_struct *p,
@@ -5157,6 +5174,9 @@ static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 	u64 wallclock;
 	unsigned int old_load;
 	struct walt_related_thread_group *grp = NULL;
+
+	if (task_on_scx(p))
+		return;
 
 	if (unlikely(walt_disabled))
 		return;
@@ -5234,7 +5254,8 @@ static void android_rvh_tick_entry(void *unused, struct rq *rq)
 	walt_lockdep_assert_rq(rq, NULL);
 	wallclock = walt_rq_clock(rq);
 
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+	if (!task_on_scx(rq->curr))
+		walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 
 	if (is_ed_task_present(rq, wallclock, NULL))
 		waltgov_run_callback(rq, WALT_CPUFREQ_EARLY_DET_BIT);
@@ -5248,13 +5269,19 @@ bool is_sbt_or_oscillate(void)
 bool should_boost_bus_dcvs(void)
 {
 	bool trailblazer_boost_active = false;
+	bool sbt_boost_active = false;
+	u64 now = walt_sched_clock();
 
-	if (trailblazer_boost_state_ns + TRAILBLAZER_BOOST_THRESH_NS >= walt_sched_clock())
+	if (trailblazer_boost_state_ns + TRAILBLAZER_BOOST_THRESH_NS >= now)
 		trailblazer_boost_active = true;
 
-	trace_sched_boost_bus_dcvs(oscillate_cpu, trailblazer_boost_active);
+	if (sbt_boost_ns + SBT_BOOST_THRESH_NS >= now)
+		sbt_boost_active = true;
 
-	return (oscillate_cpu != -1) || is_storage_boost() || trailblazer_boost_active;
+	trace_sched_boost_bus_dcvs(oscillate_cpu, trailblazer_boost_active, sbt_boost_active);
+
+	return (oscillate_cpu != -1) || is_storage_boost() || trailblazer_boost_active ||
+		sbt_boost_active;
 }
 EXPORT_SYMBOL_GPL(should_boost_bus_dcvs);
 
@@ -5328,12 +5355,14 @@ static void android_vh_scheduler_tick(void *unused, struct rq *rq)
 	if (unlikely(walt_disabled))
 		return;
 
-	old_load = task_load(rq->curr);
-	rcu_read_lock();
-	grp = task_related_thread_group(rq->curr);
-	if (should_update_preferred_cluster(grp, rq->curr, old_load, true, rq->clock))
-		set_preferred_cluster(grp, rq->clock);
-	rcu_read_unlock();
+	if (!task_on_scx(rq->curr)) {
+		old_load = task_load(rq->curr);
+		rcu_read_lock();
+		grp = task_related_thread_group(rq->curr);
+		if (should_update_preferred_cluster(grp, rq->curr, old_load, true, rq->clock))
+			set_preferred_cluster(grp, rq->clock);
+		rcu_read_unlock();
+	}
 
 	walt_lb_tick(rq);
 
@@ -5393,6 +5422,9 @@ static void android_rvh_schedule(void *unused, struct task_struct *prev,
 	struct walt_task_struct *wts = (struct walt_task_struct *)android_task_vendor_data(prev);
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
 
+	if (task_on_scx(prev) && task_on_scx(next))
+		return;
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -5407,10 +5439,14 @@ static void android_rvh_schedule(void *unused, struct task_struct *prev,
 		wrq->mvp_arrival_time = 0;
 
 	if (likely(prev != next)) {
-		if (!task_is_runnable(prev))
-			wts->last_sleep_ts = wallclock;
-		walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
-		walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+		if (!task_on_scx(prev)) {
+			if (!task_is_runnable(prev))
+				wts->last_sleep_ts = wallclock;
+			walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
+		}
+
+		if (!task_on_scx(next))
+			walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 	} else {
 		walt_update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 	}

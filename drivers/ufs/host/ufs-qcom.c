@@ -95,6 +95,12 @@ enum {
 	UFS_QCOM_CMD_COMPL,
 };
 
+enum {
+	UFS_QCOM_SYSFS_NONE,
+	UFS_QCOM_SYSFS_S2R,
+	UFS_QCOM_SYSFS_DEEPSLEEP,
+};
+
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
 
 static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
@@ -1660,7 +1666,7 @@ static void ufs_qcom_populate_cluster_info(struct ufs_hba *hba)
 	 */
 	for_each_cpu(cpu, cpu_possible_mask) {
 		cid = topology_cluster_id(cpu);
-		if (cid != prev_cid) {
+		if (cid != prev_cid && cid < MAX_NUM_CLUSTERS) {
 			cid_cpu[cid] = cpu;
 			prev_cid = cid;
 			host->num_cpus++;
@@ -1668,7 +1674,7 @@ static void ufs_qcom_populate_cluster_info(struct ufs_hba *hba)
 	}
 
 	/* populate qos perf and non perf mask */
-	for (i = 0; i < host->num_cpus; i++) {
+	for (i = 0; i < host->num_cpus && i < MAX_NUM_CLUSTERS; i++) {
 		/* Target having single cluster, populate just the perf mask */
 		if (host->num_cpus == 1)
 			host->qos_perf_mask.bits[0] = topology_cluster_cpumask(cid_cpu[i])->bits[0];
@@ -2394,6 +2400,10 @@ static void ufs_qcom_parse_pm_levels(struct ufs_hba *hba)
 		ufshcd_is_valid_pm_lvl(spm_lvl))
 		hba->spm_lvl = spm_lvl;
 	host->is_dt_pm_level_read = true;
+
+	if (of_property_read_bool(np, "set-ds-spm-level"))
+		host->set_ds_spm_level = true;
+
 }
 
 static void ufs_qcom_override_pa_tx_hsg1_sync_len(struct ufs_hba *hba)
@@ -5691,9 +5701,6 @@ static ssize_t boost_min_threshold_store(struct device *dev,
 	u32 val;
 	int ret;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
-
 	ret = kstrtouint(buf, 0, &val);
 	if (ret) {
 		dev_err(hba->dev, "boost min thres load failed\n");
@@ -5727,9 +5734,6 @@ static ssize_t boost_max_threshold_store(struct device *dev,
 	u32 val;
 	int ret;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
-
 	ret = kstrtouint(buf, 0, &val);
 	if (ret) {
 		dev_err(hba->dev, "boost max thres load failed\n");
@@ -5762,9 +5766,6 @@ static ssize_t boost_monitor_timer_ms_store(struct device *dev,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int ret;
 	u32 val;
-
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
 
 	ret = kstrtouint(buf, 0, &val);
 	if (ret) {
@@ -5815,6 +5816,59 @@ static ssize_t cap_hs_gear_limit_store(struct device *dev,
 
 static DEVICE_ATTR_RW(cap_hs_gear_limit);
 
+static ssize_t ufs_pm_mode_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret = -1;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	switch (host->ufs_pm_mode) {
+	case 0:
+		ret = scnprintf(buf, 6, "NONE\n");
+		break;
+	case 1:
+		ret = scnprintf(buf, 5, "S2R\n");
+		break;
+	case 2:
+		ret = scnprintf(buf, 12, "DEEPSLEEP\n");
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static ssize_t ufs_pm_mode_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	char kbuff[12] = {0};
+
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (!buf)
+		return -EINVAL;
+
+	strscpy(kbuff, buf, 11);
+
+	if (!strncasecmp(kbuff, "NONE", 4))
+		host->ufs_pm_mode = 0;
+	else if (!strncasecmp(kbuff, "S2R", 3))
+		host->ufs_pm_mode = 1;
+	else if (!strncasecmp(kbuff, "DEEPSLEEP", 9))
+		host->ufs_pm_mode = 2;
+	else
+		dev_err(hba->dev, "Invalid entry for ufs_pm_mode\n");
+
+	return count;
+}
+
+
+static DEVICE_ATTR_RW(ufs_pm_mode);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -5830,6 +5884,7 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_boost_max_threshold.attr,
 	&dev_attr_boost_monitor_timer_ms.attr,
 	&dev_attr_cap_hs_gear_limit.attr,
+	&dev_attr_ufs_pm_mode.attr,
 	NULL
 };
 
@@ -6258,20 +6313,62 @@ static int ufs_qcom_system_resume(struct device *dev)
 #ifdef CONFIG_PM_SLEEP
 static int ufs_qcom_suspend_prepare(struct device *dev)
 {
+	struct ufs_hba *hba;
+	struct ufs_qcom_host *host;
+
 	if (!is_bootdevice_ufs) {
 		dev_info(dev, "UFS is not boot dev.\n");
 		return 0;
 	}
+
+	hba = dev_get_drvdata(dev);
+	host = ufshcd_get_variant(hba);
+
+	host->spm_lvl_prev = hba->spm_lvl;
+
+	/*
+	 * For deep sleep, if "set_ds_spm_level" flag is true, set the
+	 * spm level to lvl 5 because all regulators is turned off in DS.
+	 * For other scenarios like s2idle, retain the default spm level.
+	 */
+	switch (host->ufs_pm_mode) {
+	case UFS_QCOM_SYSFS_NONE:
+		if (host->set_ds_spm_level && (pm_suspend_target_state == PM_SUSPEND_MEM))
+			hba->spm_lvl = UFS_PM_LVL_5;
+		break;
+	case UFS_QCOM_SYSFS_DEEPSLEEP:
+		if (host->set_ds_spm_level)
+			hba->spm_lvl = UFS_PM_LVL_5;
+		break;
+	case UFS_QCOM_SYSFS_S2R:
+	default:
+		break;
+	}
+
+	if (hba->spm_lvl != host->spm_lvl_prev)
+		dev_info(dev, "spm level is changed from %d to %d\n",
+			host->spm_lvl_prev, hba->spm_lvl);
 
 	return ufshcd_suspend_prepare(dev);
 }
 
 static void ufs_qcom_resume_complete(struct device *dev)
 {
+	struct ufs_hba *hba;
+	struct ufs_qcom_host *host;
+
 	if (!is_bootdevice_ufs) {
 		dev_info(dev, "UFS is not boot dev.\n");
 		return;
 	}
+
+	hba = dev_get_drvdata(dev);
+	host = ufshcd_get_variant(hba);
+
+	if (host->set_ds_spm_level)
+		hba->spm_lvl = host->spm_lvl_prev;
+
+	host->ufs_pm_mode = UFS_QCOM_SYSFS_NONE;
 
 	return ufshcd_resume_complete(dev);
 }

@@ -18,13 +18,13 @@ gunyah_hypercall.ko
 gunyah_loader.ko
 gunyah_platform_hooks.ko
 gunyah_rsc_mgr.ko
+gh_mem_notifier.ko
 gh_msgq.ko
 gh_arm_drv.ko
 gh_ctrl.ko
 gh_dbl.ko
 gh_rm_drv.ko
 gh_virt_wdt.ko
-hvc_gunyah.ko
 qcom_dma_heaps.ko
 virtio_clk_monaco.ko
 virtio_clk_lemans.ko

@@ -111,6 +111,8 @@ enum hab_payload_type {
 	((_local_cfg_)->vmid_mmid_list[_vmid_].is_listener[_mmid_])
 #define HABCFG_GET_KERNEL(_local_cfg_, _vmid_, _mmid_) \
 	((_local_cfg_)->vmid_mmid_list[_vmid_].kernel_only[_mmid_])
+#define HABCFG_GET_DMA_COHERENT(_local_cfg_, _vmid_, _mmid_grp_index_) \
+	((_local_cfg_)->vmid_mmid_list[_vmid_].dma_coherent[_mmid_grp_index_])
 
 struct hab_header {
 	uint32_t id_type;
@@ -382,9 +384,12 @@ struct uhab_context {
 	int kernel;
 	int owner;
 	/*
-	 * only used for user-space hab client
+	 * For user-space hab client
 	 * if created through /dev/hab-* node, mmid_grp_index = MMID / 100
 	 * if created through /dev/hab node, mmid_grp_index = 0
+	 *
+	 * For kernel hab client
+	 * mmid_grp_index is always 0 as only one single kctx is shared with clients in kernel
 	 */
 	int mmid_grp_index;
 
@@ -400,6 +405,7 @@ struct vmid_mmid_desc {
 	int mmid[HABCFG_MMID_AREA_MAX+1]; /* selected or not */
 	int is_listener[HABCFG_MMID_AREA_MAX+1]; /* yes or no */
 	int kernel_only[HABCFG_MMID_AREA_MAX+1]; /* yes or no */
+	bool dma_coherent[HABCFG_MMID_AREA_MAX+1];
 };
 
 struct local_vmid {

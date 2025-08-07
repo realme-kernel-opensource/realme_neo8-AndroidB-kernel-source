@@ -50,7 +50,6 @@
 
 extern bool walt_disabled;
 extern bool waltgov_disabled;
-extern bool trailblazer_state;
 
 enum task_event {
 	PUT_PREV_TASK	= 0,
@@ -124,7 +123,6 @@ struct walt_cpu_load {
 	u64		ws;
 	bool		rtgb_active;
 	bool		ed_active;
-	bool		trailblazer_state;
 	bool		trailblazer_boost_state;
 };
 
@@ -439,6 +437,8 @@ extern unsigned long __read_mostly soc_flags;
 
 #define TRAILBLAZER_BOOST_THRESH_IPC 300
 #define TRAILBLAZER_BOOST_THRESH_NS 100000000
+
+#define SBT_BOOST_THRESH_NS 40000000
 
 extern unsigned int sysctl_sched_idle_enough;
 extern unsigned int sysctl_sched_cluster_util_thres_pct;
@@ -1307,7 +1307,8 @@ static inline void walt_irq_work_queue(struct irq_work *work)
  */
 static inline bool walt_fair_task(struct task_struct *p)
 {
-	return p->prio >= MAX_RT_PRIO && !walt_is_idle_task(p);
+	return (p->prio >= MAX_RT_PRIO && !walt_is_idle_task(p)) &&
+		!(task_on_scx(p));
 }
 
 extern int sched_long_running_rt_task_ms_handler(const struct ctl_table *table, int write,

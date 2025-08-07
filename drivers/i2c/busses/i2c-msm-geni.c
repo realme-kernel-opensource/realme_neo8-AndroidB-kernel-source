@@ -2700,7 +2700,7 @@ static void gi2c_se_dma_clear_process(struct geni_i2c_dev *gi2c, struct i2c_msg 
  * Return: None
  */
 void geni_i2c_fifo_dma_rw(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], u32 msg_idx,
-			  enum geni_se_xfer_mode *mode, dma_addr_t rx_dma, dma_addr_t tx_dma,
+			  enum geni_se_xfer_mode *mode, dma_addr_t *rx_dma, dma_addr_t *tx_dma,
 			  u8 *dma_buf, u32 m_param)
 {
 	int ret;
@@ -2714,7 +2714,7 @@ void geni_i2c_fifo_dma_rw(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], u32 
 		geni_se_setup_m_cmd(&gi2c->i2c_rsc, m_cmd, m_param);
 		if (*mode == GENI_SE_DMA) {
 			ret = geni_se_rx_dma_prep(&gi2c->i2c_rsc, dma_buf, msgs[msg_idx].len,
-						  &rx_dma);
+						  rx_dma);
 			if (ret) {
 				i2c_put_dma_safe_msg_buf(dma_buf, &msgs[msg_idx], false);
 				*mode = GENI_SE_FIFO;
@@ -2722,7 +2722,7 @@ void geni_i2c_fifo_dma_rw(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], u32 
 				geni_i2c_stop_on_bus(gi2c);
 			} else if (gi2c->dbg_buf_ptr) {
 				gi2c->dbg_buf_ptr[msg_idx].virt_buf = (void *)dma_buf;
-				gi2c->dbg_buf_ptr[msg_idx].map_buf = (void *)&rx_dma;
+				gi2c->dbg_buf_ptr[msg_idx].map_buf = (void *)rx_dma;
 			}
 		}
 	} else {
@@ -2733,7 +2733,7 @@ void geni_i2c_fifo_dma_rw(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], u32 
 		geni_se_setup_m_cmd(&gi2c->i2c_rsc, m_cmd, m_param);
 		if (*mode == GENI_SE_DMA) {
 			ret = geni_se_tx_dma_prep(&gi2c->i2c_rsc, dma_buf, msgs[msg_idx].len,
-						  &tx_dma);
+						  tx_dma);
 			if (ret) {
 				i2c_put_dma_safe_msg_buf(dma_buf, &msgs[msg_idx], false);
 				*mode = GENI_SE_FIFO;
@@ -2741,7 +2741,7 @@ void geni_i2c_fifo_dma_rw(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], u32 
 				geni_i2c_stop_on_bus(gi2c);
 			} else if (gi2c->dbg_buf_ptr) {
 				gi2c->dbg_buf_ptr[msg_idx].virt_buf = (void *)dma_buf;
-				gi2c->dbg_buf_ptr[msg_idx].map_buf = (void *)&tx_dma;
+				gi2c->dbg_buf_ptr[msg_idx].map_buf = (void *)tx_dma;
 			}
 		}
 		if (*mode == GENI_SE_FIFO) /* Get FIFO IRQ */
@@ -2814,7 +2814,7 @@ static int geni_i2c_execute_xfer(struct geni_i2c_dev *gi2c,
 			    "%s: stretch:%d, m_param:0x%x\n",
 			    __func__, stretch, m_param);
 
-		geni_i2c_fifo_dma_rw(gi2c, msgs, i, &mode, rx_dma, tx_dma, dma_buf, m_param);
+		geni_i2c_fifo_dma_rw(gi2c, msgs, i, &mode, &rx_dma, &tx_dma, dma_buf, m_param);
 		timeout = wait_for_completion_timeout(&gi2c->xfer, gi2c->xfer_timeout);
 		if (!timeout) {
 			u32 geni_ios = 0;
@@ -3435,6 +3435,27 @@ static void geni_i2c_shutdown(struct platform_device *pdev)
 	i2c_mark_adapter_suspended(&gi2c->adap);
 }
 
+/**
+ * geni_i2c_deep_sleep_supported() - Checks whether Deep sleep functionality is supported or not.
+ *
+ * Return: True if deep sleep/quick boot functionality supports otherwise false.
+ */
+
+#ifdef CONFIG_DEEPSLEEP
+static bool geni_i2c_deep_sleep_supported(void)
+{
+	if (pm_suspend_target_state == PM_SUSPEND_MEM)
+		return true;
+
+	return false;
+}
+#else
+static bool geni_i2c_deep_sleep_supported(void)
+{
+	return false;
+}
+#endif
+
 static int geni_i2c_resume_early(struct device *device)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(device);
@@ -3444,7 +3465,6 @@ static int geni_i2c_resume_early(struct device *device)
 #ifdef CONFIG_DEEPSLEEP
 	if (pm_suspend_target_state == PM_SUSPEND_MEM) {
 		gi2c->se_mode = UNINITIALIZED;
-		gi2c->is_deep_sleep = true;
 	}
 #endif
 	return 0;
@@ -3475,6 +3495,12 @@ static int geni_i2c_gpi_pause_resume(struct geni_i2c_dev *gi2c, bool is_suspend)
 	 */
 	if (gi2c->tx_c) {
 		if (is_suspend) {
+			if (gi2c->is_deep_sleep) {
+				gi2c->tx_ev.cmd = MSM_GPI_DEEP_SLEEP_INIT;
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+					    "%s: Deep sleep entry\n", __func__);
+			}
+
 			tx_ret = dmaengine_pause(gi2c->tx_c);
 		} else {
 			/*
@@ -3483,8 +3509,11 @@ static int geni_i2c_gpi_pause_resume(struct geni_i2c_dev *gi2c, bool is_suspend)
 			 * do similar to the probe. After this we should set this flag to
 			 * MSM_GPI_DEFAULT, means gpi probe state is restored.
 			 */
-			if (gi2c->is_deep_sleep)
+			if (gi2c->is_deep_sleep) {
 				gi2c->tx_ev.cmd = MSM_GPI_DEEP_SLEEP_INIT;
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+					    "%s: Deep sleep exit\n", __func__);
+			}
 
 			tx_ret = dmaengine_resume(gi2c->tx_c);
 			if (gi2c->is_deep_sleep) {
@@ -3731,6 +3760,12 @@ static int geni_i2c_suspend_late(struct device *device)
 				"late I2C transaction request\n");
 		return -EBUSY;
 	}
+
+	if (geni_i2c_deep_sleep_supported()) {
+		gi2c->is_deep_sleep = true;
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev, "%s:Deep Sleep Entry\n", __func__);
+	}
+
 	if (!pm_runtime_status_suspended(device)) {
 		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 			"%s: Force suspend\n", __func__);

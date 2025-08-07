@@ -541,4 +541,20 @@ config QCOM_MINIDUMP_CLK
 	  Say Y if you want to register the clocks with minidump framework and
 	  collect their info in minidump.
 
+config SC_GCC_X1P42100
+	tristate "X1P42100 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  X1P42100 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, SD/eMMC, etc.
+
+config CLK_X1E80100_TCSRCC
+	tristate "X1E80100 TCSR Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the TCSR clock controller on X1E80100 devices.
+	  Say Y if you want to use peripheral devices such as SD/UFS.
+
 endif

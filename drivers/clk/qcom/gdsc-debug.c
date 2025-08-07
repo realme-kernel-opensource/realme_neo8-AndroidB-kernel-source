@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/debugfs.h>
@@ -153,7 +153,7 @@ static int gdsc_genpd_debug_create_one(struct gdsc_debug *gdsc_debug,
 		return -ENOENT;
 	}
 
-	if (sc->flags & HW_CTRL) {
+	if (sc->flags & (HW_CTRL | HW_CTRL_TRIGGER)) {
 		tmp = debugfs_create_file("hwctrl", 0644, root, gdsc_debug,
 				&gdsc_genpd_debug_hwctrl_fops);
 		if (IS_ERR_OR_NULL(tmp)) {
