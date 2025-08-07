@@ -161,6 +161,10 @@ if (dev) \
 	spi_trace_log(dev, x); \
 } while (0)
 
+/* Macro to convert transfer length to word count */
+#define XFER_LEN_IN_WORDS(xfer, word_len)	(((xfer)->len << 3) / (word_len))
+#define XFER_LEN_IN_BYTES(xfer, bpw)		((xfer)->len / (bpw))
+
 #define CREATE_TRACE_POINTS
 #include "spi-qup-trace.h"
 
@@ -182,6 +186,7 @@ void spi_trace_log(struct device *dev, const char *fmt, ...)
 struct gsi_desc_cb {
 	struct spi_controller *spi;
 	struct spi_transfer *xfer;
+	struct spi_transfer *xfer_tx_rx;
 };
 
 struct spi_geni_qcom_ctrl_data {
@@ -292,6 +297,7 @@ struct spi_geni_master {
 	struct spi_split_dma_tre split_tx_dma_tre;
 	u32 geni_init_cfg_revision;
 	bool is_deep_sleep; /* For deep sleep restore the config similar to the probe. */
+	bool is_tx_rx; /* Indicates if current transfer Tx_Rx  */
 };
 
 /**
@@ -1115,6 +1121,9 @@ static void spi_gsi_rx_callback(void *cb)
 	xfer = desc_cb->xfer;
 	mas = spi_controller_get_devdata(spi);
 
+	if (mas->is_tx_rx)
+		xfer = desc_cb->xfer_tx_rx;
+
 	if (xfer->rx_buf) {
 		if (cb_param->status == MSM_GPI_TCE_UNEXP_ERR) {
 			SPI_LOG_ERR(mas->ipc, true, mas->dev,
@@ -1414,6 +1423,7 @@ static void spi_split_xfer_tx_nent_update(u32 tx_len, int *tx_nent)
 /**
  * spi_xfer_cmd_update() - Update spi transfer command
  * @xfer: pointer to spi transfer
+ * @xfer_tx_rx: pointer to spi Tx_Rx transfer
  * @mas: pointer to spi_geni_master
  * @tx_nent: number of tx entries
  * @rx_nent: number ox rx entries
@@ -1422,14 +1432,17 @@ static void spi_split_xfer_tx_nent_update(u32 tx_len, int *tx_nent)
  *
  * Return: void
  */
-static void spi_xfer_cmd_update(struct spi_transfer *xfer, struct spi_geni_master *mas,
-				int *tx_nent, int *rx_nent, u32 *rx_len, u8 *cmd)
+static void spi_xfer_cmd_update(struct spi_transfer *xfer, struct spi_transfer *xfer_tx_rx,
+				struct spi_geni_master *mas, int *tx_nent, int *rx_nent,
+				u32 *rx_len, u8 *cmd)
 {
-	if (xfer->tx_buf && xfer->rx_buf) {
+	if (xfer->tx_buf && xfer_tx_rx && xfer_tx_rx->rx_buf) {
+		*cmd = SPI_TX_RX;
+		*tx_nent += 2;
+		*rx_nent += 1;
+	} else if (xfer->tx_buf && xfer->rx_buf) {
 		if (mas->proto == GENI_SE_SPI)
 			*cmd = SPI_FULL_DUPLEX;
-		else
-			*cmd = SPI_TX_RX;
 
 		*tx_nent += 1;
 		*rx_nent += 1;
@@ -1684,8 +1697,9 @@ static int spi_gsi_tx_xfer(struct spi_transfer *xfer, struct spi_geni_master *ma
 	return 0;
 }
 
-static int setup_gsi_xfer(struct spi_transfer *xfer, struct spi_geni_master *mas,
-			  struct spi_device *spi_slv, struct spi_controller *spi)
+static int setup_gsi_xfer(struct spi_transfer *xfer, struct spi_transfer *xfer_tx_rx,
+			  struct spi_geni_master *mas, struct spi_device *spi_slv,
+			  struct spi_controller *spi)
 {
 	int ret = 0;
 	struct msm_gpi_tre *c0_tre = NULL;
@@ -1756,14 +1770,20 @@ static int setup_gsi_xfer(struct spi_transfer *xfer, struct spi_geni_master *mas
 	}
 
 	if (!(mas->cur_word_len % MIN_WORD_LEN)) {
-		rx_len = ((xfer->len << 3) / mas->cur_word_len);
+		if (mas->is_tx_rx)
+			rx_len = XFER_LEN_IN_WORDS(xfer_tx_rx, mas->cur_word_len);
+		else
+			rx_len = XFER_LEN_IN_WORDS(xfer, mas->cur_word_len);
 	} else {
 		int bytes_per_word = (mas->cur_word_len / BITS_PER_BYTE) + 1;
 
-		rx_len = (xfer->len / bytes_per_word);
+		if (mas->is_tx_rx)
+			rx_len = XFER_LEN_IN_BYTES(xfer_tx_rx, bytes_per_word);
+		else
+			rx_len = XFER_LEN_IN_BYTES(xfer, bytes_per_word);
 	}
 
-	spi_xfer_cmd_update(xfer, mas, &tx_nent, &rx_nent, &rx_len, &cmd);
+	spi_xfer_cmd_update(xfer, xfer_tx_rx, mas, &tx_nent, &rx_nent, &rx_len, &cmd);
 
 	cs |= chip_select;
 	if (!xfer->cs_change) {
@@ -1783,8 +1803,14 @@ static int setup_gsi_xfer(struct spi_transfer *xfer, struct spi_geni_master *mas
 	sg_set_buf(xfer_tx_sg++, go_tre, sizeof(*go_tre));
 	mas->gsi[mas->num_xfers].desc_cb.spi = spi;
 	mas->gsi[mas->num_xfers].desc_cb.xfer = xfer;
+	if (mas->is_tx_rx)
+		mas->gsi[mas->num_xfers].desc_cb.xfer_tx_rx = xfer_tx_rx;
+
 	if (cmd & SPI_RX_ONLY) {
-		ret = spi_gsi_rx_xfer(xfer, mas, xfer_rx_sg, rx_nent, flags);
+		if (mas->is_tx_rx)
+			ret = spi_gsi_rx_xfer(xfer_tx_rx, mas, xfer_rx_sg, rx_nent, flags);
+		else
+			ret = spi_gsi_rx_xfer(xfer, mas, xfer_rx_sg, rx_nent, flags);
 		if (ret)
 			return ret;
 	}
@@ -2637,7 +2663,7 @@ static int spi_geni_check_gsi_transfer_completion(struct spi_geni_master *mas,
 }
 
 static int spi_geni_transfer_one(struct spi_controller *spi, struct spi_device *slv,
-				 struct spi_transfer *xfer)
+				 struct spi_transfer *xfer, struct spi_transfer *xfer_tx_rx)
 {
 	int ret = 0;
 	struct spi_geni_master *mas = spi_controller_get_devdata(spi);
@@ -2729,7 +2755,7 @@ static int spi_geni_transfer_one(struct spi_controller *spi, struct spi_device *
 		reinit_completion(&mas->tx_cb);
 		reinit_completion(&mas->rx_cb);
 
-		ret = setup_gsi_xfer(xfer, mas, slv, spi);
+		ret = setup_gsi_xfer(xfer, xfer_tx_rx, mas, slv, spi);
 		if (ret) {
 			SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				"setup_gsi_xfer failed: %d\n", ret);
@@ -2773,16 +2799,40 @@ static int spi_geni_transfer_one_message(struct spi_controller *spi, struct spi_
 {
 	struct spi_geni_master *mas = spi_controller_get_devdata(spi);
 	struct spi_transfer *xfer;
+	struct spi_transfer *next_xfer = NULL;
+	struct spi_transfer *xfer_tx_rx = NULL;
 	int ret = 0;
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-		ret = spi_geni_transfer_one(spi, msg->spi, xfer);
+		mas->is_tx_rx = false;
+		xfer_tx_rx = NULL;
+		if (!list_is_last(&xfer->transfer_list, &msg->transfers)) {
+			next_xfer = list_next_entry(xfer, transfer_list);
+			/*
+			 * Check if next transfer is Rx transfer only.
+			 * If yes, then combine current Tx with next Rx into
+			 * a single Tx_Rx transfer.
+			 */
+			if (next_xfer->rx_buf && !next_xfer->tx_buf) {
+				xfer_tx_rx = next_xfer;
+				/* this transfer is Tx_Rx */
+				mas->is_tx_rx = true;
+				ret = spi_geni_transfer_one(spi, msg->spi, xfer, xfer_tx_rx);
+			}
+		} else {
+			ret = spi_geni_transfer_one(spi, msg->spi, xfer, xfer_tx_rx);
+		}
 		if (ret < 0) {
 			SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				    "SPI transfer failed: %d\n", ret);
 			goto out;
 		}
 		msg->actual_length += xfer->len;
+
+		if (mas->is_tx_rx) {
+			msg->actual_length += xfer_tx_rx->len;
+			xfer = xfer_tx_rx;
+		}
 	}
 
 out:
