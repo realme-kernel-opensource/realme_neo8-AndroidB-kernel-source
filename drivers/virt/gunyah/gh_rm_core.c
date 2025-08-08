@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  */
 
@@ -955,6 +955,7 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 	struct gh_vminfo vm_info = {0};
 	enum gh_vm_names vm_name;
 	u8 vm_status = vm_status_payload->vm_status;
+	u8 os_status = vm_status_payload->os_status;
 	int ret;
 
 	if (cmd != GH_RM_NOTIF_VM_STATUS || vm_status_payload->vmid > QCOM_SCM_MAX_MANAGED_VMID)
@@ -987,7 +988,17 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 		}
 		break;
 	case GH_RM_VM_STATUS_RUNNING:
-		pr_err("vm(%d) started running\n", vm_status_payload->vmid);
+		switch (os_status) {
+		case GH_RM_OS_STATUS_NONE:
+			pr_err("vm(%d) started running\n", vm_status_payload->vmid);
+			break;
+		case GH_RM_OS_STATUS_BOOT:
+			pr_err("vm(%d) os started running\n", vm_status_payload->vmid);
+			break;
+		default:
+			pr_err("Unknown notification receieved for vmid = %d os_status = %d\n",
+				vm_status_payload->vmid, os_status);
+		}
 		break;
 	case GH_RM_VM_STATUS_EXITED:
 		pr_err("vm(%d) exited\n", vm_status_payload->vmid);
