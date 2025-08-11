@@ -62,7 +62,7 @@ hamoa_perf_config = {
     "CONFIG_MHI_NET": "n",
     "CONFIG_MHI_NETDEV": "n",
     "CONFIG_MHI_SATELLITE": "n",
-    "CONFIG_MHI_UCI": "n",
+    "CONFIG_MHI_UCI": "m",
     "CONFIG_MHI_WWAN_CTRL": "n",
     "CONFIG_MHI_WWAN_MBIM": "n",
     "CONFIG_MINIDUMP_MAX_ENTRIES": "200",
