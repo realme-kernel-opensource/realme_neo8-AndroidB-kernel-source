@@ -756,7 +756,7 @@ int sched_updown_migrate_handler(const struct ctl_table *table, int write,
 
 	/* check if valid pct values are passed in */
 	for (i = 0; i < cap_margin_levels; i++) {
-		if (val[i] <= 0 || val[i] > 100) {
+		if (val[i] <= 0) {
 			ret = -EINVAL;
 			goto unlock_mutex;
 		}
@@ -828,7 +828,7 @@ int sched_cgroup_updown_migrate_handler(const struct ctl_table *table, int write
 
 	/* check if valid pct values are passed in */
 	for (i = 0; i < NUM_UPDOWN_SETTINGS; i++) {
-		if (val[i] <= 0 || val[i] > 100) {
+		if (val[i] <= 0) {
 			ret = -EINVAL;
 			goto unlock_mutex;
 		}
