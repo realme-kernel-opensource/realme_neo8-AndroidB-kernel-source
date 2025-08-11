@@ -1939,7 +1939,8 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 		if (host->vddp_ref_clk && ufs_qcom_is_link_off(hba))
 			err = ufs_qcom_disable_vreg(hba->dev,
 					host->vddp_ref_clk);
-		if (host->vccq_parent && !hba->auto_bkops_enabled)
+		if (host->vccq_parent && !ufshcd_is_ufs_dev_active(hba) &&
+				!hba->auto_bkops_enabled)
 			ufs_qcom_disable_vreg(hba->dev, host->vccq_parent);
 		if (!err)
 			err = ufs_qcom_unvote_qos_all(hba);
