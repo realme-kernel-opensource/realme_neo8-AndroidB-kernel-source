@@ -1463,6 +1463,17 @@ static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct
 	return packing_cpu;
 }
 
+static inline bool any_large_above_util_threshold(unsigned long util)
+{
+	int cpu;
+
+	for_each_cpu(cpu, &cpu_array[0][num_sched_clusters - 1])
+		if (cpu_util(cpu) > util)
+			return true;
+
+	return false;
+}
+
 extern void update_smart_freq_capacities(void);
 extern void update_cpu_capacity_helper(int cpu);
 extern void smart_freq_update_for_all_cluster(u64 wallclock, uint32_t reasons);
@@ -1643,7 +1654,7 @@ extern bool move_storage_load(struct rq *rq);
 #define MAX_YIELD_CNT_PER_TASK_THR		25
 #define	YIELD_INDUCED_SLEEP			BIT(7)
 #define YIELD_CNT_MASK				0x7F
-#define YIELD_WINDOW_SIZE_USEC			(16ULL * USEC_PER_MSEC)
+#define YIELD_WINDOW_SIZE_USEC			(14 * USEC_PER_MSEC)
 #define YIELD_WINDOW_SIZE_NSEC			(YIELD_WINDOW_SIZE_USEC * NSEC_PER_USEC)
 #define	YIELD_GRACE_PERIOD_NSEC			(4ULL * NSEC_PER_MSEC)
 #define YIELD_SLEEP_TIME_USEC			250

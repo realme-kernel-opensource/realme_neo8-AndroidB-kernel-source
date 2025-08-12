@@ -140,9 +140,7 @@ void account_yields(u64 wallclock)
 	unsigned int target_threshold_wake = FORCE_MAX_YIELD_CNT_GLOBAL_THR_DEFAULT;
 	unsigned int target_threshold_sleep = FORCE_MAX_YIELD_SLEEP_CNT_GLOBAL_THR;
 	u8 continuous_window_th = FORCE_MIN_CONTIGUOUS_YIELDING_WINDOW;
-
-	if (!sysctl_force_frequent_yielder)
-		return;
+	bool high_util = false;
 
 	/* window boundary crossed */
 	if (delta > YIELD_WINDOW_SIZE_NSEC) {
@@ -159,8 +157,11 @@ void account_yields(u64 wallclock)
 					YIELD_WINDOW_SIZE_NSEC);
 		}
 
-		if ((total_yield_cnt >= target_threshold_wake) ||
-				(total_sleep_cnt >= target_threshold_sleep / 2)) {
+		if (!sysctl_force_frequent_yielder)
+			high_util = any_large_above_util_threshold(200);
+
+		if (!high_util && ((total_yield_cnt >= target_threshold_wake) ||
+				   (total_sleep_cnt >= target_threshold_sleep / 2))) {
 			if (contiguous_yielding_windows < continuous_window_th)
 				contiguous_yielding_windows++;
 		} else {
@@ -218,6 +219,16 @@ static void inject_sleep(struct walt_task_struct *wts)
 	u64 current_ts = 0;
 	u64 frame = 0, delta = 0, sleep_nsec = 0;
 
+	/* special handling for sleep injection without frame calculations */
+	if (!sysctl_force_frequent_yielder) {
+		per_cpu(walt_yield_to_sleep, raw_smp_processor_id())++;
+		wts->yield_state |= YIELD_INDUCED_SLEEP;
+		total_sleep_cnt++;
+		usleep_range_state(YIELD_SLEEP_TIME_USEC,
+					YIELD_SLEEP_TIME_USEC, TASK_INTERRUPTIBLE);
+		return;
+	}
+
 	/*
 	 * updating and reading clock will not hurt here as this cpu is
 	 * already in yield cycle not doing anything significant.
@@ -255,13 +266,11 @@ static void walt_do_sched_yield_before(void *unused, long *skip)
 	if (unlikely(walt_disabled))
 		return;
 
-	if (!sysctl_force_frequent_yielder)
-		return;
-
 	if (!walt_fair_task(current))
 		return;
 
-	if (pipeline_in_progress() && walt_pipeline_low_latency_task(current)) {
+	if (sysctl_force_frequent_yielder && pipeline_in_progress() &&
+						walt_pipeline_low_latency_task(current)) {
 		*skip = true;
 		inject_sleep(wts);
 		return;
