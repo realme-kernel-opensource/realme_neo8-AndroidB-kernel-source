@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  * Copyright (c) 2022 Linaro Ltd
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * Author: Krzysztof Kozlowski <krzk@kernel.org> based on previous work of Kumar Gala.
  */
 #ifndef _DT_BINDINGS_ARM_QCOM_IDS_H
@@ -286,6 +287,7 @@
 #define QCOM_ID_VIENNA			669
 #define QCOM_ID_VIENNAP			670
 #define QCOM_ID_ALOR			685
+#define QCOM_ID_ALORP			727
 #define QCOM_ID_ALOR_INTERPOSER		704
 #define QCOM_ID_WHALE			722
 #define QCOM_ID_WHALEP			723
