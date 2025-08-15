@@ -4714,7 +4714,7 @@ static void walt_irq_work(struct irq_work *irq_work)
 	}
 }
 
-void walt_rotation_checkpoint(int nr_big)
+void walt_rotation_checkpoint(int nr_giant)
 {
 	int i;
 	bool prev = walt_rotation_enabled;
@@ -4727,7 +4727,7 @@ void walt_rotation_checkpoint(int nr_big)
 		return;
 	}
 
-	walt_rotation_enabled = nr_big >= num_possible_cpus();
+	walt_rotation_enabled = nr_giant >= num_possible_cpus();
 
 	for (i = 0; i < num_sched_clusters; i++) {
 		if (walt_rotation_enabled && !prev)
