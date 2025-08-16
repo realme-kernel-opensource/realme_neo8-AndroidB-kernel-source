@@ -586,7 +586,7 @@ config SC_CAMCC_X1P42100
 
 config CLK_X1E80100_GCC
 	tristate "X1E80100 Global Clock Controller"
-	depends on ARM64 || COMPILE_TEST
+	depends on ARM64 || COMPILE_TEST || COMMON_CLK_QCOM
 	select QCOM_GDSC
 	help
 	  Support for the global clock controller on Qualcomm Technologies, Inc
