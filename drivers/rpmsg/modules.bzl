@@ -161,3 +161,22 @@ def register_modules(registry):
             "drivers/soc/qcom/debug_symbol",
         ],
     )
+
+    registry.register(
+        name = "drivers/rpmsg/rpm-smd",
+        out = "rpm-smd.ko",
+        config = "CONFIG_MSM_RPM_SMD",
+        srcs = [
+            # do not sort
+            "drivers/rpmsg/rpm-smd.c",
+        ],
+        deps = [
+            # do not sort
+            "kernel/trace/qcom_ipc_logging",
+            "drivers/rpmsg/qcom_glink",
+            "drivers/rpmsg/qcom_glink_smem",
+            "drivers/rpmsg/qcom_glink_spss",
+            "drivers/rpmsg/qcom_glink_rpm",
+            "drivers/irqchip/qcom-mpm",
+        ],
+    )
