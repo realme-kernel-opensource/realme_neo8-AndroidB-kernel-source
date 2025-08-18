@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 #include <linux/irqdomain.h>
 #include <linux/delay.h>
@@ -22,6 +22,7 @@
 #include <linux/firmware/qcom/qcom_scm.h>
 #include <soc/qcom/minidump.h>
 #include <soc/qcom/watchdog.h>
+#include <soc/qcom/qcom_sdei.h>
 #include <linux/cpumask.h>
 #include <linux/cpu_pm.h>
 #include <uapi/linux/sched/types.h>
@@ -705,6 +706,7 @@ static irqreturn_t qcom_wdt_bark_handler(int irq, void *dev_id)
 	if (wdog_dd->freeze_in_progress)
 		dev_info(wdog_dd->dev, "Suspend in progress\n");
 
+	qcom_sdei_shared_reset();
 	md_dump_process();
 	qcom_wdt_trigger_bite();
 

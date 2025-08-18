@@ -459,11 +459,18 @@ static inline void cancel_dwork_unvote_cpufreq(struct ufs_hba *hba)
 	if (host->cpufreq_dis)
 		return;
 
+	if (host->dbg_en)
+		trace_ufs_fwork(atomic_read(&host->num_reqs_threshold),
+						host->cur_freq_vote,
+						true);
+
 	cancel_delayed_work_sync(&host->fwork);
 #if IS_ENABLED(CONFIG_SCHED_WALT)
 	if (host->esi_mask.bits[0] && host->enforce_high_irq_cpus)
 		walt_unset_enforce_high_irq_cpus(&host->esi_mask);
 	sched_set_boost(STORAGE_BOOST_DISABLE);
+	if (host->dbg_en)
+		trace_ufs_set_storage_boost(STORAGE_BOOST_DISABLE);
 #endif
 
 	if (!host->cur_freq_vote)
@@ -1790,10 +1797,14 @@ static void ufs_qcom_toggle_pri_affinity(struct ufs_hba *hba, bool on)
 		if (host->esi_mask.bits[0] && host->enforce_high_irq_cpus)
 			walt_set_enforce_high_irq_cpus(&host->esi_mask);
 		sched_set_boost(STORAGE_BOOST);
+		if (host->dbg_en)
+			trace_ufs_set_storage_boost(STORAGE_BOOST);
 	} else {
 		if (host->esi_mask.bits[0] && host->enforce_high_irq_cpus)
 			walt_unset_enforce_high_irq_cpus(&host->esi_mask);
 		sched_set_boost(STORAGE_BOOST_DISABLE);
+		if (host->dbg_en)
+			trace_ufs_set_storage_boost(STORAGE_BOOST_DISABLE);
 	}
 #endif
 
@@ -1843,6 +1854,9 @@ static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 			host->cur_freq_vote, freq_val, cur_thres, host->cpu_info[i].first_cpu);
 	}
 out:
+	if (host->dbg_en)
+		trace_ufs_fwork(cur_thres, host->cur_freq_vote, false);
+
 	queue_delayed_work(host->ufs_qos->workq, &host->fwork,
 			   msecs_to_jiffies(host->boost_monitor_timer));
 }
@@ -2878,6 +2892,10 @@ static int ufs_qcom_update_qos_constraints(struct qos_cpu_group *qcg,
 	else
 		qcg->voted = true;
 	qcg->curr_vote = vote;
+
+	if (qcg->host->dbg_en)
+		trace_ufs_qcom_update_qos_constraints(vote, qcg - qcg->host->ufs_qos->qcg);
+
 	return 0;
 }
 

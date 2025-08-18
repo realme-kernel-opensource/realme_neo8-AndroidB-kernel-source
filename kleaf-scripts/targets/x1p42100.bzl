@@ -70,3 +70,5 @@ def define_x1p42100():
             ":x1p42100_perf_all_modules",
         ],
     )
+
+    native.exports_files(["modules-lists/modules.list.msm.x1p42100"])

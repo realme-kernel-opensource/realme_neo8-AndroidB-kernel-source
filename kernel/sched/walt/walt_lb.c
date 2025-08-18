@@ -1239,11 +1239,17 @@ static void walt_find_new_ilb(void *unused, struct cpumask *nohz_idle_cpus_mask,
 		int *ilb)
 {
 	int cpu, i;
+	bool cluster_loaded = false, paused = false;
+	unsigned long total_util, total_capacity;
 
 	if (unlikely(walt_disabled))
 		return;
 
-	*ilb = nr_cpu_ids;
+	/*
+	 * if WALT doesn't find any target cpu return -1 this ensures
+	 * scheduler core skips in further cpu selections.
+	 */
+	*ilb = -1;
 	for (i = 0; i < num_sched_clusters - 1; i++) {
 		for_each_cpu_and(cpu, nohz_idle_cpus_mask, &cpu_array[0][i]) {
 			if (cpu == smp_processor_id())
@@ -1255,8 +1261,53 @@ static void walt_find_new_ilb(void *unused, struct cpumask *nohz_idle_cpus_mask,
 		}
 	}
 
+	/*
+	 * scan all idle cpus in non-prime clusters in second pass
+	 * misfit task will move to prime as part of either active
+	 * load balance or through wakeup path.
+	 */
 	for (i = 0; i < num_sched_clusters - 1; i++) {
+		total_util = 0;
+		total_capacity = 0;
+		paused = false;
 		for_each_cpu(cpu, &cpu_array[0][i]) {
+			if (!paused) {
+				paused = cpu_halted(cpu) || cpu_partial_halted(cpu);
+				total_util += walt_lb_cpu_util(cpu);
+				total_capacity += capacity_orig_of(cpu);
+			}
+
+			if (cpu == smp_processor_id())
+				continue;
+			if (available_idle_cpu(cpu) && cpu_online(cpu)) {
+				*ilb = cpu;
+				return;
+			}
+
+		}
+
+		/*
+		 * if none of the cpus are paused and cluster is loaded beyond 80% then
+		 * continue with prime cluster.
+		 */
+		if (!paused && ((total_capacity * 80) < (total_util * 100)))
+			cluster_loaded = true;
+	}
+
+
+	/* Find max cap cpus as lower clusters are busy */
+	if (cluster_loaded) {
+		for_each_cpu_and(cpu, nohz_idle_cpus_mask, &cpu_array[0][num_sched_clusters - 1]) {
+			if (cpu == smp_processor_id())
+				continue;
+			if (available_idle_cpu(cpu) && cpu_online(cpu)) {
+				*ilb = cpu;
+				return;
+			}
+		}
+
+		for_each_cpu_andnot(cpu, &cpu_array[0][num_sched_clusters - 1],
+									nohz_idle_cpus_mask) {
 			if (cpu == smp_processor_id())
 				continue;
 			if (available_idle_cpu(cpu) && cpu_online(cpu)) {

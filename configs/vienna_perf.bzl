@@ -1,6 +1,7 @@
 vienna_perf_config = {
     # keep sorted
     "CONFIG_ARCH_VIENNA": "y",
+    # CONFIG_ARM64_AMU_EXTN is not set
     "CONFIG_ARM_QCOM_CPUFREQ_HW": "m",
     "CONFIG_ARM_QCOM_CPUFREQ_HW_DEBUG": "m",
     "CONFIG_ARM_SMMU": "m",
@@ -52,6 +53,7 @@ vienna_perf_config = {
     "CONFIG_MODULE_SIG_ALL": "n",
     "CONFIG_MSM_BOOT_STATS": "m",
     "CONFIG_MSM_GPI_DMA": "m",
+    "CONFIG_MSM_POWER_STATE": "m",
     "CONFIG_MSM_QMP": "m",
     "CONFIG_MSM_RDBG": "m",
     "CONFIG_NL80211_TESTMODE": "y",
@@ -110,6 +112,7 @@ vienna_perf_config = {
     "CONFIG_QCOM_MEMORY_DUMP_V2": "m",
     "CONFIG_QCOM_MEM_BUF": "m",
     "CONFIG_QCOM_MEM_BUF_DEV": "m",
+    "CONFIG_QCOM_MEM_OFFLINE": "m",
     "CONFIG_QCOM_MINIDUMP": "m",
     "CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT": "y",
     "CONFIG_QCOM_MINIDUMP_PANIC_DUMP": "y",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -1657,7 +1657,7 @@ static int rpmh_rsc_pd_callback(struct notifier_block *nfb,
 
 	/* We don't need to lock as genpd on/off are serialized */
 	if ((action == GENPD_NOTIFY_PRE_OFF) &&
-	    (ch < 0 || rpmh_rsc_ctrlr_is_busy(drv) || _rpmh_flush(&drv->client, ch)))
+	    (ch < 0 || rpmh_rsc_ctrlr_is_busy(drv) || rpmh_flush(&drv->client, ch)))
 		return NOTIFY_BAD;
 
 	return NOTIFY_OK;

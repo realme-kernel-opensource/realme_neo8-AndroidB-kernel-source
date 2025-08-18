@@ -2954,6 +2954,8 @@ static inline void __sched_fork_init(struct task_struct *p)
 	wts->continuous_active	= 0;
 	wts->pipeline_activity_cnt = 0;
 	atomic_set(&wts->event_windows, 0);
+	/* valid lib count is from 0 to 126, initialize 'lib_app_state' to 127 */
+	wts->lib_app_state	= LIB_UPDATE_CNT_MAX;
 }
 
 static void init_new_task_load(struct task_struct *p)

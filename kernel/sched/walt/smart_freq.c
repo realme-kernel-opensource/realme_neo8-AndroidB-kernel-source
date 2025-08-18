@@ -167,6 +167,15 @@ int sched_smart_freq_legacy_freq_handler(const struct ctl_table *table, int writ
 		default_freq_config[id].legacy_reason_config[NO_REASON_SMART_FREQ].freq_allowed =
 			no_reason_freq;
 		default_freq_config[id].ipc_reason_config[IPC_A].freq_allowed = no_reason_freq;
+
+		if (id == 0)
+			sysctl_ipc_freq_levels_cluster0[IPC_A] = no_reason_freq;
+		else if (id == 1)
+			sysctl_ipc_freq_levels_cluster1[IPC_A] = no_reason_freq;
+		else if (id == 2)
+			sysctl_ipc_freq_levels_cluster2[IPC_A] = no_reason_freq;
+		else if (id == 3)
+			sysctl_ipc_freq_levels_cluster3[IPC_A] = no_reason_freq;
 	}
 
 	for (i = 0; i < size; i += 2) {

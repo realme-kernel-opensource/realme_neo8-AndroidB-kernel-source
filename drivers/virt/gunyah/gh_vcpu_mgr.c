@@ -568,14 +568,27 @@ static void android_rvh_gh_before_vcpu_release(void *unused, u16 vmid,
 	proxy_vcpu = xa_load(&vm->vcpus, vcpu_id);
 	if (!proxy_vcpu)
 		return;
-	/* VM instance already get a vcpu kref, only need to get VM kref here */
-	if (vcpu->vcpu_run->immediate_exit || !gunyah_vm_get(vcpu->ghvm))
+	/* Do not need to create kthread if VM is shutdown */
+	if (vcpu->vcpu_run->immediate_exit ||
+	    vcpu->state == GUNYAH_VCPU_RUN_STATE_SYSTEM_DOWN)
 		return;
+	/* VM instance already get a vcpu kref, only need to get VM kref here */
+	if (!gunyah_vm_get(vcpu->ghvm))
+		return;
+
 	proxy_vcpu->gunyah_vcpu = vcpu;
 
 	proxy_vcpu->vcpu_thread = kthread_run(gh_vcpu_kthread, proxy_vcpu,
 					      "vm%d_vcpu%d_kthread", vmid,
 					      vcpu_id);
+	if (IS_ERR(proxy_vcpu->vcpu_thread)) {
+		proxy_vcpu->vcpu_thread = NULL;
+		proxy_vcpu->gunyah_vcpu = NULL;
+		pr_err("Failed to create vcpu kthread for VM=%d vcpu=%d\n",
+		       vmid, vcpu_id);
+		gunyah_vm_put(vcpu->ghvm);
+		return;
+	}
 }
 
 static void android_rvh_gh_before_vm_release(void *unused, u16 vmid,

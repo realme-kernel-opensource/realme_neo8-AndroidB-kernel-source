@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  */
 
@@ -955,6 +955,7 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 	struct gh_vminfo vm_info = {0};
 	enum gh_vm_names vm_name;
 	u8 vm_status = vm_status_payload->vm_status;
+	u8 os_status = vm_status_payload->os_status;
 	int ret;
 
 	if (cmd != GH_RM_NOTIF_VM_STATUS || vm_status_payload->vmid > QCOM_SCM_MAX_MANAGED_VMID)
@@ -962,7 +963,7 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 
 	switch (vm_status) {
 	case GH_RM_VM_STATUS_READY:
-		pr_err("vm(%d) is ready\n", vm_status_payload->vmid);
+		pr_info("vm(%d) is ready\n", vm_status_payload->vmid);
 		ret = gh_rm_get_vm_id_info(vm_status_payload->vmid);
 		if (ret < 0) {
 			pr_err("Failed to get vmid info for vmid = %d ret = %d\n",
@@ -987,10 +988,20 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 		}
 		break;
 	case GH_RM_VM_STATUS_RUNNING:
-		pr_err("vm(%d) started running\n", vm_status_payload->vmid);
+		switch (os_status) {
+		case GH_RM_OS_STATUS_NONE:
+			pr_err("vm(%d) started running\n", vm_status_payload->vmid);
+			break;
+		case GH_RM_OS_STATUS_BOOT:
+			pr_err("vm(%d) os started running\n", vm_status_payload->vmid);
+			break;
+		default:
+			pr_err("Unknown notification received for vmid = %d os_status = %d\n",
+				vm_status_payload->vmid, os_status);
+		}
 		break;
 	case GH_RM_VM_STATUS_EXITED:
-		pr_err("vm(%d) exited\n", vm_status_payload->vmid);
+		pr_info("vm(%d) exited\n", vm_status_payload->vmid);
 		ret = gh_rm_get_vm_name(vm_status_payload->vmid, &vm_name);
 		if (ret < 0) {
 			pr_err("Failed to get vm name for vmid = %d ret = %d\n",
@@ -1001,7 +1012,7 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 		if (ret < 0)
 			pr_err("Failed to get vminfo of vmname = %u\n", vm_name);
 
-		pr_err("unpopulating vm(%d) exited\n", vm_status_payload->vmid);
+		pr_info("unpopulating vm(%d) exited\n", vm_status_payload->vmid);
 		ret = gh_rm_unpopulate_hyp_res(vm_status_payload->vmid,
 				    vm_info.name);
 		if (ret < 0)
@@ -1010,8 +1021,22 @@ static int gh_rm_status_nb_handler(struct notifier_block *this,
 
 		gh_complete_vm_cleanup(vm_name);
 		break;
+	case GH_RM_VM_STATUS_INIT:
+	case GH_RM_VM_STATUS_PAUSED:
+	case GH_RM_VM_STATUS_LOAD:
+	case GH_RM_VM_STATUS_AUTH:
+	case GH_RM_VM_STATUS_RESETTING:
+	case GH_RM_VM_STATUS_RESET_FAILED:
+		pr_debug("vm(%d) is in a transitional state\n", vm_status_payload->vmid);
+		break;
+	case GH_RM_VM_STATUS_INIT_FAILED:
+		pr_info("vm(%d) initialization failed\n", vm_status_payload->vmid);
+		break;
+	case GH_RM_VM_STATUS_RESET:
+		pr_info("vm(%d) has been reset\n", vm_status_payload->vmid);
+		break;
 	default:
-		pr_err("Unknown notification receieved for vmid = %d vm_status = %d\n",
+		pr_err("Unknown notification received for vmid = %d vm_status = %d\n",
 				vm_status_payload->vmid, vm_status);
 	}
 

@@ -39,11 +39,13 @@ proxy-consumer.ko
 qti-fixed-regulator.ko
 rpmh-regulator.ko
 qcom-dload-mode.ko
+qcom_cpu_vendor_hooks.ko
 mem_buf.ko
 mem_buf_dev.ko
 secure_buffer.ko
 qcom_dma_heaps.ko
 msm_dma_iommu_mapping.ko
+pci-msm-drv.ko
 deferred-free-helper.ko
 qcom_cpucp.ko
 rproc_qcom_common.ko
@@ -54,3 +56,4 @@ clk-qcom.ko
 clk-rpmh.ko
 gcc-x1p42100.ko
 tcsrcc-x1e80100.ko
+dispcc-x1e80100.ko

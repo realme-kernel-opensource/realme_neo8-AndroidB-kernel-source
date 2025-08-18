@@ -366,7 +366,7 @@ struct uart_gsi {
 	struct msm_gpi_tre rx_cfg0_t;
 	struct msm_gpi_tre tx_go_t;
 	struct msm_gpi_tre rx_go_t;
-	struct msm_gpi_tre tx_t;
+	struct msm_gpi_tre tx_t[3];
 	struct msm_gpi_tre rx_t[5];
 	dma_addr_t tx_ph;
 	dma_addr_t rx_ph;
@@ -484,6 +484,8 @@ struct msm_geni_serial_port {
 	struct uart_kpi_capture uart_kpi_tx[UART_KPI_TX_RX_INSTANCES];
 	struct uart_kpi_capture uart_kpi_rx[UART_KPI_TX_RX_INSTANCES];
 	struct uart_split_dma_tre split_dma_tre;
+	dma_addr_t ts_dma[2];
+	bool time_stamp;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -535,6 +537,53 @@ static void setup_config0_tre(struct uart_port *uport,
 			      unsigned int rx_parity, unsigned int loopback);
 static void msm_geni_uart_gsi_tx_cb(void *ptr);
 static void msm_geni_uart_gsi_rx_cb(void *ptr);
+
+/**
+ * setup_timestamp_dma_tre() - Configure DMA TRE for timestamp register
+ * @msm_port: Pointer to the serial port.
+ * @tre: DMA transmit tre pointer
+ * @ieot: IEOT (Interrupt End of Transfer) bit value
+ * @chain: Chain bit of the tre configuration
+ * @ts_dma: Pointer to store the DMA address for timestamp register
+ *
+ * This function configures a DMA TRE to read from the timestamp register
+ * and store the value for accurate timing measurements during UART transfers.
+ * The timestamp data is used for performance analysis and debugging.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+int setup_timestamp_dma_tre(struct msm_geni_serial_port *msm_port, struct msm_gpi_tre *tre,
+			    bool ieot, bool chain, dma_addr_t *ts_dma)
+{
+	int ret;
+	struct uart_port *uport = &msm_port->uport;
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+
+	if (!msm_port || !tre || !ts_dma)
+		return -EINVAL;
+
+	ret = geni_common_reg_dma_addr(uport->dev, ts_dma, QTIMER_BIN, TIMESTAMP_DATA_SIZE);
+	if (ret) {
+		if (port->ipc_log_misc)
+			UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+				     "Failed to get dma addr for timestamp register\n");
+		return ret;
+	}
+
+	tre->dword[0] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(*ts_dma);
+	tre->dword[1] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(*ts_dma);
+	tre->dword[2] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(TIMESTAMP_DATA_SIZE);
+	tre->dword[3] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, ieot, 0, chain);
+
+	if (port->ipc_log_misc)
+		UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+			     "Timestamp:TRE_DWORD0: 0x%x | TRE_DWORD1: 0x%x |\n"
+			     "\t\tTRE_DWORD2: 0x%x | TRE_DWORD3: 0x%x\n",
+			     tre->dword[0], tre->dword[1],
+			     tre->dword[2], tre->dword[3]);
+
+	return ret;
+}
 
 /*
  * geni_se_dump_dbg_regs() - Dumps uart debug registers content for debug
@@ -1132,6 +1181,14 @@ static ssize_t hs_uart_operation_store(struct device *dev,
 		 * No need to check return value as it returns
 		 * status value and it can be non-zero as well
 		 */
+		break;
+
+	case MSM_GENI_SERIAL_TIOCTSSET:
+		port->time_stamp = true;
+		break;
+
+	case MSM_GENI_SERIAL_TIOCTSCLR:
+		port->time_stamp = false;
 		break;
 
 	default:
@@ -2163,6 +2220,30 @@ out:
 }
 
 /**
+ * msm_geni_serial_cleanup_timestamp_resources() - deallocates the dma buffers associated
+ * with timstamp buffers
+ * @port: pointer to msm_port.
+ *
+ * Return: none
+ */
+static void msm_geni_serial_cleanup_timestamp_resources(struct msm_geni_serial_port *port)
+{
+	if (port->time_stamp) {
+		if (port->ts_dma[0]) {
+			dma_unmap_resource(port->wrapper_dev, port->ts_dma[0],
+					   TIMESTAMP_DATA_SIZE, DMA_TO_DEVICE, 0);
+			port->ts_dma[0] = 0;
+		}
+		if (port->ts_dma[1]) {
+			dma_unmap_resource(port->wrapper_dev, port->ts_dma[1],
+					   TIMESTAMP_DATA_SIZE, DMA_TO_DEVICE, 0);
+			port->ts_dma[1] = 0;
+		}
+		port->time_stamp = false;
+	}
+}
+
+/**
  * msm_geni_serial_free_aligned_dma_buffers() - deallocates the dma buffers
  * @msm_port: pointer to msm_port.
  *
@@ -2283,26 +2364,26 @@ static int msm_geni_serial_gsi_xfer_split_tx(struct msm_geni_serial_port *msm_po
 					     "Error Failed to obtain aligned tx buffers\n");
 				return ret;
 			}
-			msm_port->gsi->tx_t.dword[0] =
+			msm_port->gsi->tx_t[0].dword[0] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(
 					msm_port->split_dma_tre.aligned_tx_dma_buf
 				);
-			msm_port->gsi->tx_t.dword[1] =
+			msm_port->gsi->tx_t[0].dword[1] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(
 					msm_port->split_dma_tre.aligned_tx_dma_buf
 				);
-			msm_port->gsi->tx_t.dword[2] =
+			msm_port->gsi->tx_t[0].dword[2] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(xmit_size);
-			msm_port->gsi->tx_t.dword[3] =
+			msm_port->gsi->tx_t[0].dword[3] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
 		} else {
-			msm_port->gsi->tx_t.dword[0] =
+			msm_port->gsi->tx_t[0].dword[0] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(msm_port->tx_dma);
-			msm_port->gsi->tx_t.dword[1] =
+			msm_port->gsi->tx_t[0].dword[1] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(msm_port->tx_dma);
-			msm_port->gsi->tx_t.dword[2] =
+			msm_port->gsi->tx_t[0].dword[2] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(xmit_size);
-			msm_port->gsi->tx_t.dword[3] =
+			msm_port->gsi->tx_t[0].dword[3] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
 		}
 	}  else  {
@@ -2312,17 +2393,28 @@ static int msm_geni_serial_gsi_xfer_split_tx(struct msm_geni_serial_port *msm_po
 			msm_port->xmit_size = xmit_size;
 
 		msm_port->split_dma_tre.immediate_dma_in_progress = true;
-		msm_port->gsi->tx_t.dword[0] = 0;
-		msm_port->gsi->tx_t.dword[1] = 0;
-		memcpy((u8 *)&msm_port->gsi->tx_t.dword[0], (u8 *)buf, msm_port->xmit_size);
-		msm_port->gsi->tx_t.dword[2] =
+		msm_port->gsi->tx_t[0].dword[0] = 0;
+		msm_port->gsi->tx_t[0].dword[1] = 0;
+		memcpy((u8 *)&msm_port->gsi->tx_t[0].dword[0], (u8 *)buf, msm_port->xmit_size);
+		msm_port->gsi->tx_t[0].dword[2] =
 			MSM_GPI_DMA_IMMEDIATE_TRE_DWORD2(msm_port->xmit_size);
-		msm_port->gsi->tx_t.dword[3] = MSM_GPI_DMA_IMMEDIATE_TRE_DWORD3(0, 0, 1, 0, 0);
+		msm_port->gsi->tx_t[0].dword[3] = MSM_GPI_DMA_IMMEDIATE_TRE_DWORD3(0, 0, 1, 0, 0);
 	}
 
 	return ret;
 }
 
+/**
+ * msm_geni_uart_gsi_xfer_tx() - Setup GSI TX transfer with optional timestamp
+ * @work: Pointer to work structure
+ *
+ * This function sets up a GSI TX transfer. When timestamp functionality is enabled,
+ * it configures additional DMA TREs to capture timestamps at the beginning and end
+ * of the transfer, which helps with performance analysis and debugging.
+ * The timestamp data is collected from the QTIMER hardware block.
+ *
+ * Return: none
+ */
 static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 {
 	struct msm_geni_serial_port *msm_port = container_of(work,
@@ -2356,7 +2448,7 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 			__func__, ret);
 		return;
 	}
-	sg_init_table(msm_port->gsi->tx_sg, 3);
+	sg_init_table(msm_port->gsi->tx_sg, msm_port->time_stamp ? 5 : 3);
 	sg_set_buf(msm_port->gsi->tx_sg, &msm_port->gsi->tx_cfg0_t,
 		   sizeof(msm_port->gsi->tx_cfg0_t));
 	index++;
@@ -2385,16 +2477,50 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 			msm_geni_deallocate_chan(uport);
 			return;
 		}
-		msm_port->gsi->tx_t.dword[0] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(msm_port->tx_dma);
-		msm_port->gsi->tx_t.dword[1] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(msm_port->tx_dma);
-		msm_port->gsi->tx_t.dword[2] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(xmit_size);
-		msm_port->gsi->tx_t.dword[3] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
+		msm_port->gsi->tx_t[0].dword[0] =
+			MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(msm_port->tx_dma);
+		msm_port->gsi->tx_t[0].dword[1] =
+			MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(msm_port->tx_dma);
+		msm_port->gsi->tx_t[0].dword[2] =
+			MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(xmit_size);
+		msm_port->gsi->tx_t[0].dword[3] =
+			MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, !msm_port->time_stamp,
+							0, msm_port->time_stamp);
 	}
-	sg_set_buf(&msm_port->gsi->tx_sg[index++], &msm_port->gsi->tx_t,
-		   sizeof(msm_port->gsi->tx_t));
-	msm_port->gsi->tx_desc = dmaengine_prep_slave_sg(msm_port->gsi->tx_c, msm_port->gsi->tx_sg,
-							 3, DMA_MEM_TO_DEV,
-							 (DMA_PREP_INTERRUPT | DMA_CTRL_ACK));
+
+	sg_set_buf(&msm_port->gsi->tx_sg[index++], &msm_port->gsi->tx_t[0],
+		   sizeof(msm_port->gsi->tx_t[0]));
+
+	if (msm_port->time_stamp) {
+		ret = setup_timestamp_dma_tre(msm_port, &msm_port->gsi->tx_t[1], 0, 1,
+					      &msm_port->ts_dma[0]);
+		if (ret) {
+			dev_err(uport->dev, "Error %d: failed to set up first timestamp TRE\n",
+				ret);
+			msm_geni_deallocate_chan(uport);
+			return;
+		}
+		sg_set_buf(&msm_port->gsi->tx_sg[index++], &msm_port->gsi->tx_t[1],
+			   sizeof(msm_port->gsi->tx_t[1]));
+		ret = setup_timestamp_dma_tre(msm_port, &msm_port->gsi->tx_t[2], 1, 0,
+					      &msm_port->ts_dma[1]);
+		if (ret) {
+			dev_err(uport->dev, "Error %d: failed to set up second timestamp TRE\n",
+				ret);
+			dma_unmap_resource(tx_dev, msm_port->ts_dma[0],
+					   TIMESTAMP_DATA_SIZE, DMA_TO_DEVICE, 0);
+			msm_port->ts_dma[0] = 0;
+			msm_geni_deallocate_chan(uport);
+			return;
+		}
+		sg_set_buf(&msm_port->gsi->tx_sg[index++], &msm_port->gsi->tx_t[2],
+			   sizeof(msm_port->gsi->tx_t[2]));
+	}
+	msm_port->gsi->tx_desc = dmaengine_prep_slave_sg(msm_port->gsi->tx_c,
+							 msm_port->gsi->tx_sg,
+							 index, DMA_MEM_TO_DEV,
+							 (DMA_PREP_INTERRUPT |
+							 DMA_CTRL_ACK));
 	if (!msm_port->gsi->tx_desc) {
 		dev_err(uport->dev, "%s:TX descriptor prep failed\n",
 			__func__);
@@ -2423,7 +2549,6 @@ exit_gsi_tx_xfer:
 	if (!msm_port->split_dma_tre.immediate_dma_in_progress)
 		geni_se_common_iommu_unmap_buf(tx_dev, &msm_port->tx_dma,
 					       msm_port->xmit_size, DMA_TO_DEVICE);
-
 	msm_geni_deallocate_chan(uport);
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 		     "%s: Failed to prep Tx descriptor", __func__);
@@ -2473,6 +2598,7 @@ static void msm_geni_uart_gsi_cancel_rx(struct work_struct *work)
 	if (!msm_port->gsi_rx_done) {
 		UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
 			     "%s: gsi_rx not yet done\n", __func__);
+		atomic_set(&msm_port->stop_rx_inprogress, 0);
 		return;
 	}
 	if (msm_port->gsi->rx_c)
@@ -5443,6 +5569,7 @@ static int msm_geni_serial_get_clk(struct platform_device *pdev,
 
 	return ret;
 }
+
 static int msm_geni_serial_read_dtsi(struct platform_device *pdev,
 					struct msm_geni_serial_port *dev_port)
 {
@@ -5856,6 +5983,7 @@ static void msm_geni_serial_remove(struct platform_device *pdev)
 	if (port->gsi_mode) {
 		destroy_workqueue(port->tx_wq);
 		destroy_workqueue(port->rx_wq);
+		msm_geni_serial_cleanup_timestamp_resources(port);
 	}
 	if (port->rx_dma) {
 		geni_se_common_iommu_free_buf(port->wrapper_dev, &port->rx_dma,

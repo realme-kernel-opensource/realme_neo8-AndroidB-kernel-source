@@ -144,3 +144,20 @@ def register_modules(registry):
             "drivers/remoteproc/rproc_qcom_common",
         ],
     )
+
+    registry.register(
+        name = "drivers/rpmsg/qcom_glink_rpm",
+        out = "qcom_glink_rpm.ko",
+        config = "CONFIG_RPMSG_QCOM_GLINK_RPM",
+        srcs = [
+            # do not sort
+            "drivers/rpmsg/qcom_glink_native.h",
+            "drivers/rpmsg/qcom_glink_rpm.c",
+        ],
+        deps = [
+            # do not sort
+            "drivers/rpmsg/qcom_glink",
+            "kernel/trace/qcom_ipc_logging",
+            "drivers/soc/qcom/debug_symbol",
+        ],
+    )

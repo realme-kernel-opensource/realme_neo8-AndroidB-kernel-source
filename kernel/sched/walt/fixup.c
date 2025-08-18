@@ -27,6 +27,7 @@ static bool is_sched_lib_based_app(pid_t pid)
 	char *tmp_lib_name;
 	bool found = false;
 	struct task_struct *p;
+	struct walt_task_struct *wts;
 	struct mm_struct *mm;
 
 	if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0)
@@ -42,6 +43,18 @@ static bool is_sched_lib_based_app(pid_t pid)
 	if (!p) {
 		kfree(tmp_lib_name);
 		return false;
+	}
+
+	/*
+	 * if cached lib_update_cnt in wts is same as global 'lib_update_cnt' then
+	 * the task is already evaluated and return the evaluated value (Bit 7).
+	 * For cases lib_update_cnt is different(cases where lib name is updated)
+	 * re-evaluate the state.
+	 */
+	wts = (struct walt_task_struct *)android_task_vendor_data(p);
+	if ((wts->lib_app_state & LIB_UPDATE_CNT_MAX) == lib_update_cnt) {
+		kfree(tmp_lib_name);
+		return !!(wts->lib_app_state & 0x80);
 	}
 
 	mm = get_task_mm(p);
@@ -74,6 +87,8 @@ release_sem:
 		mmput(mm);
 
 	}
+	wts->lib_app_state = found ? BIT(7) : 0;
+	wts->lib_app_state |= lib_update_cnt;
 	put_task_struct(p);
 	kfree(tmp_lib_name);
 	return found;

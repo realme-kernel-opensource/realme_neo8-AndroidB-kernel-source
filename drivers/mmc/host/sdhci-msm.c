@@ -28,6 +28,8 @@
 #include <linux/nvmem-consumer.h>
 #include <linux/ipc_logging.h>
 #include <linux/pinctrl/qcom-pinctrl.h>
+#include <linux/device.h>
+#include <linux/of_platform.h>
 
 #include <soc/qcom/ice.h>
 
@@ -5109,6 +5111,30 @@ static int sdhci_msm_setup_pwr_irq(struct sdhci_msm_host *msm_host)
 	return 0;
 }
 
+static int sdhci_msm_parse_sdio(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *dep_np;
+	struct platform_device *dep_pdev;
+
+	dep_np = of_parse_phandle(dev->of_node, "sdhc-msm-sdio", 0);
+	if (!dep_np)
+		return 0;
+
+	dep_pdev = of_find_device_by_node(dep_np);
+	of_node_put(dep_np);
+
+	if (!dep_pdev || !dep_pdev->dev.driver || !dep_pdev->dev.driver_data) {
+		dev_warn(dev, "SDIO dependent driver probe not complete\n");
+		if (dep_pdev)
+			platform_device_put(dep_pdev);
+		return -EPROBE_DEFER;
+	}
+
+	platform_device_put(dep_pdev);
+	return 0;
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -5125,6 +5151,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		dev_err(dev, "SDHCI is not boot dev.\n");
 		return 0;
 	}
+
+	ret = sdhci_msm_parse_sdio(pdev);
+	if (ret)
+		return ret;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_msm_pdata, sizeof(*msm_host));
 	if (IS_ERR(host))
