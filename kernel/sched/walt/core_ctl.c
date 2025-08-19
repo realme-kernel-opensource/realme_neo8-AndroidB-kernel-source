@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define pr_fmt(fmt)	"core_ctl: " fmt
@@ -1368,6 +1368,7 @@ static bool core_ctl_non_large_cpus_below_busy_pct(void)
 	return true;
 }
 
+#define SBT_CPU_BUSY_UTIL_THRESH 200
 bool prev_is_sbt;
 #define SBT_LIMIT 45
 /* is the system in a single-big-thread case? */
@@ -1389,6 +1390,12 @@ static inline bool core_ctl_is_sbt(int prev_is_sbt_windows, u32 wakeup_ctr_sum)
 		goto out;
 
 	if (!core_ctl_non_large_cpus_below_busy_pct())
+		goto out;
+
+	if (!any_large_above_util_threshold(SBT_CPU_BUSY_UTIL_THRESH))
+		goto out;
+
+	if (is_large_cpu_cap_low())
 		goto out;
 
 	ret = true;
