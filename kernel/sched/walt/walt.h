@@ -108,6 +108,7 @@ extern unsigned int trailblazer_floor_freq[MAX_CLUSTERS];
 #define WALT_TRAILBLAZER_BIT		BIT(1)
 #define WALT_IDLE_TASK_BIT		BIT(2)
 #define WALT_LRB_PIPELINE_BIT		BIT(3)
+#define WALT_GIANT_BIT			BIT(4)
 
 #define WALT_LOW_LATENCY_PROCFS_BIT	BIT(0)
 #define WALT_LOW_LATENCY_BINDER_BIT	BIT(1)
@@ -132,6 +133,7 @@ struct walt_cpu_load {
 struct walt_sched_stats {
 	int		nr_big_tasks;
 	int		nr_trailblazer_tasks;
+	int		nr_giant_tasks;
 	u64		cumulative_runnable_avg_scaled;
 	u64		pred_demands_sum_scaled;
 	unsigned int	nr_rtg_high_prio_tasks;
@@ -391,6 +393,7 @@ extern int cpu_l2_sibling[WALT_NR_CPUS];
 extern void sched_update_nr_prod(int cpu, int enq);
 extern unsigned int walt_big_tasks(int cpu);
 extern int walt_trailblazer_tasks(int cpu);
+extern int walt_giant_tasks(int cpu);
 extern void walt_rotation_checkpoint(int nr_big);
 extern void walt_fill_ta_data(struct core_ctl_notif_data *data);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
@@ -655,6 +658,7 @@ struct sched_avg_stats {
 	int nr_misfit;
 	int nr_max;
 	int nr_scaled;
+	int nr_giant;
 };
 
 struct waltgov_callback {
@@ -1740,4 +1744,10 @@ extern void early_walt_config(void);
 extern unsigned int sysctl_topapp_weight_pct;
 extern u64 trailblazer_boost_state_ns;
 extern u64 oscillate_ts_ns;
+
+/*
+ * Multiply the pct value by 10 so that division by 100 can be converted
+ * to a simple bit shift operation, ie., divide by 1024 or shift right by 10.
+ */
+#define GIANT_UTIL_THRESH_PCT 700
 #endif /* _WALT_H */

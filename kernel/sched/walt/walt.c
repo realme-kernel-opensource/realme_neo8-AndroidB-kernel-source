@@ -380,6 +380,31 @@ fixup_cumulative_runnable_avg(struct rq *rq,
 	stats->pred_demands_sum_scaled = (u64)pred_demands_sum_scaled;
 }
 
+static inline void
+fixup_nr_giant(struct rq *rq, struct task_struct *p, struct walt_sched_stats *stats,
+		u16 updated_demand_scaled)
+{
+	bool is_prev_giant_task = walt_flag_test(p, WALT_GIANT_BIT);
+	int cap;
+
+	if (num_sched_clusters >= 2)
+		cap = capacity_orig_of(cpumask_first(&cpu_array[0][num_sched_clusters - 2]));
+	else
+		cap = capacity_orig_of(cpumask_first(&cpu_array[0][num_sched_clusters - 1]));
+
+	if (updated_demand_scaled > ((GIANT_UTIL_THRESH_PCT * cap) >> SCHED_CAPACITY_SHIFT)) {
+		if (!is_prev_giant_task) {
+			walt_flag_set(p, WALT_GIANT_BIT, 1);
+			stats->nr_giant_tasks++;
+		}
+	} else {
+		if (is_prev_giant_task) {
+			walt_flag_set(p, WALT_GIANT_BIT, 0);
+			stats->nr_giant_tasks--;
+		}
+	}
+}
+
 static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 				   u16 updated_demand_scaled,
 				   u16 updated_pred_demand_scaled)
@@ -393,6 +418,9 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 
 	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats, task_load_delta,
 				      pred_demand_delta);
+
+	if (walt_fair_task(p))
+		fixup_nr_giant(rq, p, &wrq->walt_stats, updated_demand_scaled);
 }
 
 static void rollover_cpu_window(struct rq *rq, bool full_window);
@@ -568,6 +596,13 @@ int walt_trailblazer_tasks(int cpu)
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu);
 
 	return wrq->walt_stats.nr_trailblazer_tasks;
+}
+
+int walt_giant_tasks(int cpu)
+{
+	struct walt_rq *wrq = &per_cpu(walt_rq, cpu);
+
+	return wrq->walt_stats.nr_giant_tasks;
 }
 
 bool trailblazer_on_prime(void)
@@ -3013,6 +3048,7 @@ static void init_new_task_load(struct task_struct *p)
 
 	walt_flag_set(p, WALT_INIT_BIT, 1);
 	walt_flag_set(p, WALT_TRAILBLAZER_BIT, 0);
+	walt_flag_set(p, WALT_GIANT_BIT, 0);
 }
 
 int remove_heavy(struct walt_task_struct *wts);
@@ -4796,6 +4832,7 @@ static void walt_sched_init_rq(struct rq *rq)
 	wrq->window_start = 0;
 	wrq->walt_stats.nr_big_tasks = 0;
 	wrq->walt_stats.nr_trailblazer_tasks = 0;
+	wrq->walt_stats.nr_giant_tasks = 0;
 	wrq->walt_flags = 0;
 	wrq->avg_irqload = 0;
 	wrq->prev_irq_time = 0;
