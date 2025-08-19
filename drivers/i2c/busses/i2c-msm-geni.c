@@ -2573,6 +2573,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			ret = geni_i2c_gsi_read(gi2c, &rd_dma_buf, msgs, i, unlock_t,
 						num, segs, &index);
 			if (ret == GENI_I2C_ERR_PREP_SG) {
+				geni_i2c_stop_on_bus(gi2c);
 				ret = gi2c->err;
 				goto  geni_i2c_err_prep_sg;
 
@@ -2592,6 +2593,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 				ret = gi2c->err;
 				goto geni_i2c_gsi_xfer_out;
 			} else if (ret == GENI_I2C_ERR_PREP_SG) {
+				geni_i2c_stop_on_bus(gi2c);
 				ret = gi2c->err;
 				goto  geni_i2c_err_prep_sg;
 			}
