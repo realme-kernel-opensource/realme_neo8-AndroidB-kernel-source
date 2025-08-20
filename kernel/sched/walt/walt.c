@@ -4714,26 +4714,34 @@ static void walt_irq_work(struct irq_work *irq_work)
 	}
 }
 
-void walt_rotation_checkpoint(int nr_giant)
+#define HIGH_PERF_CAP_HYST_SEC 10 /*10 seconds of suppression */
+void walt_rotation_checkpoint(u64 window_start, int nr_giant)
 {
 	int i;
+	static u64 high_perf_state_hyst_start_ts;
 	bool prev = walt_rotation_enabled;
 
 	if (!hmp_capable())
 		return;
 
-	if (!sysctl_sched_walt_rotate_big_tasks || sched_boost_type != NO_BOOST) {
+	if (!sysctl_sched_walt_rotate_big_tasks || sched_boost_type != NO_BOOST)
 		walt_rotation_enabled = 0;
-		return;
-	}
+	else
+		walt_rotation_enabled = nr_giant >= num_possible_cpus();
 
-	walt_rotation_enabled = nr_giant >= num_possible_cpus();
 
-	for (i = 0; i < num_sched_clusters; i++) {
-		if (walt_rotation_enabled && !prev)
+	if (walt_rotation_enabled && !prev) {
+		for (i = 0; i < num_sched_clusters; i++)
 			freq_cap[HIGH_PERF_CAP][i] = high_perf_cluster_freq_cap[i];
-		else if (!walt_rotation_enabled && prev)
+		high_perf_state_hyst_start_ts = 0;
+	} else if (!walt_rotation_enabled && prev) {
+		high_perf_state_hyst_start_ts = window_start;
+	} else if (high_perf_state_hyst_start_ts &&
+			(window_start - high_perf_state_hyst_start_ts
+				>= HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC)) {
+		for (i = 0; i < num_sched_clusters; i++)
 			freq_cap[HIGH_PERF_CAP][i] = FREQ_QOS_MAX_DEFAULT_VALUE;
+		high_perf_state_hyst_start_ts = 0;
 	}
 
 	update_smart_freq_capacities();
