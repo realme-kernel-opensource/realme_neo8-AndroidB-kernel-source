@@ -126,6 +126,8 @@ vienna_perf_config = {
     "CONFIG_QCOM_PDR_MSG": "m",
     "CONFIG_QCOM_PD_MAPPER": "m",
     "CONFIG_QCOM_PIL_INFO": "m",
+    "CONFIG_QCOM_POWER_TELEMETRY_FRAMEWORK": "m",
+    "CONFIG_QCOM_POWER_TELEMETRY_HW": "m",
     "CONFIG_QCOM_PMU_LIB": "m",
     "CONFIG_QCOM_Q6V5_COMMON": "m",
     "CONFIG_QCOM_Q6V5_PAS": "m",
