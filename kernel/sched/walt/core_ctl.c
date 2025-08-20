@@ -1048,7 +1048,7 @@ static void update_running_avg(u64 window_start, u32 wakeup_ctr_sum)
 
 	last_nr_big = big_avg;
 
-	walt_rotation_checkpoint(giant);
+	walt_rotation_checkpoint(window_start, giant);
 	/* Update the SMART freq configuration for NON-IPC reasons. */
 	smart_freq_update_reason_common(window_start, big_avg, wakeup_ctr_sum);
 }

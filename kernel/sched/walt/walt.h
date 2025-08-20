@@ -395,7 +395,7 @@ extern void sched_update_nr_prod(int cpu, int enq);
 extern unsigned int walt_big_tasks(int cpu);
 extern int walt_trailblazer_tasks(int cpu);
 extern int walt_giant_tasks(int cpu);
-extern void walt_rotation_checkpoint(int nr_giant);
+extern void walt_rotation_checkpoint(u64 window_start, int nr_giant);
 extern void walt_fill_ta_data(struct core_ctl_notif_data *data);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
