@@ -564,9 +564,8 @@ int setup_timestamp_dma_tre(struct msm_geni_serial_port *msm_port, struct msm_gp
 
 	ret = geni_common_reg_dma_addr(uport->dev, ts_dma, QTIMER_BIN, TIMESTAMP_DATA_SIZE);
 	if (ret) {
-		if (port->ipc_log_misc)
-			UART_LOG_DBG(port->ipc_log_misc, uport->dev,
-				     "Failed to get dma addr for timestamp register\n");
+		UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+			     "Failed to get dma addr for timestamp register\n");
 		return ret;
 	}
 
@@ -575,12 +574,10 @@ int setup_timestamp_dma_tre(struct msm_geni_serial_port *msm_port, struct msm_gp
 	tre->dword[2] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(TIMESTAMP_DATA_SIZE);
 	tre->dword[3] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, ieot, 0, chain);
 
-	if (port->ipc_log_misc)
-		UART_LOG_DBG(port->ipc_log_misc, uport->dev,
-			     "Timestamp:TRE_DWORD0: 0x%x | TRE_DWORD1: 0x%x |\n"
-			     "\t\tTRE_DWORD2: 0x%x | TRE_DWORD3: 0x%x\n",
-			     tre->dword[0], tre->dword[1],
-			     tre->dword[2], tre->dword[3]);
+	UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+		     "Timestamp:TRE_DWORD0: 0x%x | TRE_DWORD1: 0x%x |\n"
+		     "\t\tTRE_DWORD2: 0x%x | TRE_DWORD3: 0x%x\n",
+		     tre->dword[0], tre->dword[1], tre->dword[2], tre->dword[3]);
 
 	return ret;
 }
@@ -2428,6 +2425,7 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 	unsigned int xmit_size = 0;
 	int ret = 0, index = 0, timeout;
 	unsigned char *tail_ptr = NULL;
+	bool skip_time_stamp = false;
 
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 		     "%s: Start\n", __func__);
@@ -2440,6 +2438,13 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 	if (!xmit_size || msm_port->tx_dma)
 		return;
 
+	/* Detect wrap-around and skip timestamp if partial data is being sent */
+	if (msm_port->time_stamp && xmit_size < kfifo_len(&tport->xmit_fifo)) {
+		UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
+			     "Wrap-around occurred. skipping timestamp.\n");
+		skip_time_stamp = true;
+	}
+
 	dump_ipc(uport, msm_port->ipc_log_tx, "DMA Tx", tail_ptr, 0, xmit_size);
 
 	ret = msm_geni_allocate_chan(uport);
@@ -2448,7 +2453,8 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 			__func__, ret);
 		return;
 	}
-	sg_init_table(msm_port->gsi->tx_sg, msm_port->time_stamp ? 5 : 3);
+
+	sg_init_table(msm_port->gsi->tx_sg, (msm_port->time_stamp && !skip_time_stamp) ? 5 : 3);
 	sg_set_buf(msm_port->gsi->tx_sg, &msm_port->gsi->tx_cfg0_t,
 		   sizeof(msm_port->gsi->tx_cfg0_t));
 	index++;
@@ -2484,14 +2490,16 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 		msm_port->gsi->tx_t[0].dword[2] =
 			MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(xmit_size);
 		msm_port->gsi->tx_t[0].dword[3] =
-			MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, !msm_port->time_stamp,
-							0, msm_port->time_stamp);
+			MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0,
+							(!msm_port->time_stamp || skip_time_stamp),
+							0,
+							(msm_port->time_stamp && !skip_time_stamp));
 	}
 
 	sg_set_buf(&msm_port->gsi->tx_sg[index++], &msm_port->gsi->tx_t[0],
 		   sizeof(msm_port->gsi->tx_t[0]));
 
-	if (msm_port->time_stamp) {
+	if (msm_port->time_stamp && !skip_time_stamp) {
 		ret = setup_timestamp_dma_tre(msm_port, &msm_port->gsi->tx_t[1], 0, 1,
 					      &msm_port->ts_dma[0]);
 		if (ret) {
