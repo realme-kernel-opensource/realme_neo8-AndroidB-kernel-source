@@ -2,7 +2,7 @@
 /*
  * Synopsys DesignWare XPCS platform device driver
  *
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/delay.h>
@@ -759,7 +759,7 @@ void qcom_xpcs_link_up(struct phylink_pcs *pcs, unsigned int mode,
 		fallthrough;
 	case PHY_INTERFACE_MODE_USXGMII:
 		qcom_xpcs_link_up_usxgmii(qxpcs, speed);
-		break;
+		return;
 	default:
 		XPCSERR("Invalid MII mode: %s\n", phy_modes(interface));
 		return;
