@@ -324,7 +324,7 @@ int gh_poll_vcpu_run(gh_vmid_t vmid)
 			if (ret == GH_ERROR_OK) {
 				if (resp.vcpu_state != GUNYAH_VCPU_STATE_READY &&
 					resp.vcpu_state != GUNYAH_VCPU_STATE_EXPECTS_WAKEUP)
-					printk_deferred("VCPU STATE: state=%llu VCPU=%u of VM=%d\n",
+					pr_warn_ratelimited("VCPU STATE: state=%llu VCPU=%u of VM=%d\n",
 							resp.vcpu_state, vcpu_id, vmid);
 				break;
 			}
