@@ -240,6 +240,7 @@ canoe_perf_config = {
     "CONFIG_QCOM_QMI_HELPERS": "m",
     "CONFIG_QCOM_RAMDUMP": "m",
     "CONFIG_QCOM_RPMH": "m",
+    "CONFIG_QCOM_RPROC_BOTH_DUMPS": "y",
     "CONFIG_QCOM_RPROC_COMMON": "m",
     "CONFIG_QCOM_SCM": "m",
     "CONFIG_QCOM_SDEI": "m",
