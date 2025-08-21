@@ -1604,6 +1604,8 @@ void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 
 	if (walt_flag_test(p, WALT_GIANT_BIT))
 		wrq->walt_stats.nr_giant_tasks--;
+	if (wrq->walt_stats.nr_giant_tasks < 0)
+		wrq->walt_stats.nr_giant_tasks = 0;
 
 	BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
 	BUG_ON(wrq->walt_stats.nr_trailblazer_tasks < 0);

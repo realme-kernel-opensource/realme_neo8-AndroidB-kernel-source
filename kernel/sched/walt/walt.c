@@ -401,6 +401,8 @@ fixup_nr_giant(struct rq *rq, struct task_struct *p, struct walt_sched_stats *st
 		if (is_prev_giant_task) {
 			walt_flag_set(p, WALT_GIANT_BIT, 0);
 			stats->nr_giant_tasks--;
+			if (stats->nr_giant_tasks < 0)
+				stats->nr_giant_tasks = 0;
 		}
 	}
 }
