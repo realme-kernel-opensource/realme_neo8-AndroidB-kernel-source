@@ -2231,24 +2231,25 @@ setup_ipc:
 
 	if (!mas->is_deep_sleep) {
 		hw_ver = geni_se_get_qup_hw_version(&mas->spi_rsc);
-		if (hw_ver)
-			dev_err(mas->dev, "%s:Err getting HW version %d\n",
-							__func__, hw_ver);
-		else {
-			geni_se_common_get_major_minor_num(hw_ver, &major, &minor, &step);
-
-			mas->ver_info.hw_major_ver = major;
-			mas->ver_info.hw_minor_ver = minor;
-			mas->ver_info.hw_step_ver = step;
-			mas->ver_info.m_fw_ver = geni_se_common_get_m_fw(mas->base);
-			mas->ver_info.s_fw_ver = geni_se_common_get_s_fw(mas->base);
-
-			if ((major == 1) && (minor == 0))
-				mas->oversampling = 2;
-			SPI_LOG_DBG(mas->ipc, false, mas->dev,
-				    "%s:Major:%d Minor:%d os%d FW Ver: %d\n", __func__,
-				    major, minor, mas->oversampling, mas->ver_info.s_fw_ver);
+		if (unlikely(!hw_ver)) {
+			dev_err(mas->dev, "Err getting HW version 0x%x\n", hw_ver);
+			return -ENXIO;
 		}
+
+		geni_se_common_get_major_minor_num(hw_ver, &major, &minor, &step);
+
+		mas->ver_info.hw_major_ver = major;
+		mas->ver_info.hw_minor_ver = minor;
+		mas->ver_info.hw_step_ver = step;
+		mas->ver_info.m_fw_ver = geni_se_common_get_m_fw(mas->base);
+		mas->ver_info.s_fw_ver = geni_se_common_get_s_fw(mas->base);
+
+		if (major == 1 && minor == 0)
+			mas->oversampling = 2;
+
+		SPI_LOG_DBG(mas->ipc, false, mas->dev,
+			    "Major: %d, Minor: %d, Over Sampling: %d, FW Ver: %d\n",
+			    major, minor, mas->oversampling, mas->ver_info.s_fw_ver);
 	}
 
 	if (mas->set_miso_sampling)
