@@ -1476,6 +1476,18 @@ static inline bool any_large_above_util_threshold(unsigned long util)
 	return false;
 }
 
+#define LARGE_CPU_THROTTLED_CAP_THRESH 700
+static inline bool is_large_cpu_cap_low(void)
+{
+	struct walt_rq *wrq = &per_cpu(walt_rq,
+			cpumask_first(&cpu_array[0][num_sched_clusters - 1]));
+
+	if (wrq->cpu_capacity_orig < LARGE_CPU_THROTTLED_CAP_THRESH)
+		return true;
+
+	return false;
+}
+
 extern void update_smart_freq_capacities(void);
 extern void update_cpu_capacity_helper(int cpu);
 extern void smart_freq_update_for_all_cluster(u64 wallclock, uint32_t reasons);
