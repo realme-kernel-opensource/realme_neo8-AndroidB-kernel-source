@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef __QCOM_SECURE_BUFFER_H__
@@ -40,6 +40,7 @@ enum vmid {
 	VMID_NAV = 0x2B,
 	VMID_TVM = 0x2D,
 	VMID_OEMVM = 0x31,
+	VMID_GVM1 = 0x34,
 	VMID_LAST,
 	VMID_INVAL = -1
 };
