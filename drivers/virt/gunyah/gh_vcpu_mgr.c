@@ -210,6 +210,32 @@ out:
 	return ret;
 }
 
+/*
+ * The proxy_vcpu structure is allocated during the populate() function.
+ * It can be freed through one of two paths:
+ *
+ * (1) Via unpopulate():
+ *     - If vcpu_thread is NULL (i.e., no kernel thread was created),
+ *       unpopulate() performs immediate cleanup of proxy_vcpu.
+ *
+ * (2) Via kthread execution:
+ *     - If vcpu_thread is not NULL (i.e., a kernel thread exists),
+ *       unpopulate() does not directly free the structure.
+ *       Instead, it sets the immediate_exit flag and calls complete_all()
+ *       to signal the thread to exit.
+ *     - The gh_vcpu_kthread() function then performs its own resource
+ *       cleanup before terminating.
+ */
+static void gh_cleanup_proxy_vcpu(struct gh_proxy_vcpu *vcpu, struct gh_proxy_vm *vm)
+{
+	lockdep_assert_held(&gh_vm_mutex);
+
+	wakeup_source_unregister(vcpu->ws);
+	xa_erase(&vm->vcpus, vcpu->idx);
+	vm->vcpu_count--;
+	kfree(vcpu);
+}
+
 static int gh_unpopulate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 					gh_capid_t cap_id, int *irq)
 {
@@ -230,14 +256,12 @@ static int gh_unpopulate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 	vm = gh_get_vm(vmid);
 	if (vm && vm->is_vcpu_info_populated) {
 		vcpu = xa_load(&vm->vcpus, cpu_idx);
-		wakeup_source_unregister(vcpu->ws);
 		if (vcpu->vcpu_thread && vcpu->gunyah_vcpu) {
 			vcpu->gunyah_vcpu->vcpu_run->immediate_exit = true;
 			complete_all(&vcpu->gunyah_vcpu->ready);
+		} else {
+			gh_cleanup_proxy_vcpu(vcpu, vm);
 		}
-		kfree(vcpu);
-		xa_erase(&vm->vcpus, cpu_idx);
-		vm->vcpu_count--;
 	}
 	mutex_unlock(&gh_vm_mutex);
 
@@ -534,11 +558,7 @@ static int __maybe_unused gh_vcpu_kthread(void *data)
 	 * Once kthread is already in the exit flow, cleanup can be skipped.
 	 */
 	mutex_lock(&gh_vm_mutex);
-	if (vm) {
-		proxy_vcpu = xa_load(&vm->vcpus, vcpu->ticket.label);
-		if (proxy_vcpu)
-			proxy_vcpu->gunyah_vcpu = NULL;
-	}
+	gh_cleanup_proxy_vcpu(proxy_vcpu, vm);
 	mutex_unlock(&gh_vm_mutex);
 
 	gunyah_vm_put(vcpu->ghvm);
