@@ -3,10 +3,10 @@ targets = [
     "canoe",
     #"gen3auto",
     "autogvm",
+    "hamoa",
     "lahaina",
     "sun",
     "vienna",
-    "x1p42100",
 ]
 
 la_variants = [
