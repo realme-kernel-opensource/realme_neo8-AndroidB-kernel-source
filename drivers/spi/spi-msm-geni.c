@@ -2099,6 +2099,8 @@ static void spi_geni_set_sampling_rate(struct spi_geni_master *mas,
 static int spi_verify_proto(struct spi_geni_master *mas)
 {
 	struct spi_controller *spi = dev_get_drvdata(mas->dev);
+	struct platform_device *pdev = to_platform_device(mas->dev);
+	const char *compatible;
 	int ret = 0;
 
 	if (!mas->is_le_vm) {
@@ -2111,19 +2113,35 @@ static int spi_verify_proto(struct spi_geni_master *mas)
 	}
 
 	mas->proto = geni_se_read_proto(&mas->spi_rsc);
-
 	if (spi->target) {
 		if (mas->proto != GENI_SE_SPI_SLAVE) {
 			dev_err(mas->dev, "Invalid proto %d\n", mas->proto);
 			ret = -ENXIO;
+			goto out;
 		}
-	} else if (mas->proto != GENI_SE_SPI && mas->proto != GENI_SE_QSPI) {
-		dev_err(mas->dev, "Invalid proto %d\n", mas->proto);
-		ret = -ENXIO;
+	} else if (!of_property_read_string(pdev->dev.of_node, "compatible", &compatible)) {
+		bool valid_proto = (!strcmp(compatible, "qcom,qspi-geni") &&
+				    mas->proto == GENI_SE_QSPI) ||
+				   (!strcmp(compatible, "qcom,spi-geni") &&
+				    mas->proto == GENI_SE_SPI);
+		if (!valid_proto) {
+			dev_err(mas->dev, "Invalid proto %d or dt node.\n", mas->proto);
+			ret = -ENXIO;
+			goto out;
+		}
 	}
 
-	if (!mas->is_le_vm)
-		ret = geni_se_resources_off(&mas->spi_rsc);
+out:
+	if (!mas->is_le_vm) {
+		int cleanup_ret = geni_se_resources_off(&mas->spi_rsc);
+
+		if (!ret)
+			ret = cleanup_ret;
+		if (cleanup_ret && cleanup_ret != ret)
+			dev_err(mas->dev, "%s: geni_se_resources_off failed %d\n",
+				__func__, cleanup_ret);
+	}
+
 	return ret;
 }
 
