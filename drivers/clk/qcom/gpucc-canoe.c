@@ -150,6 +150,8 @@ static const struct clk_parent_data gpu_cc_parent_data_1_ao[] = {
 
 static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(200000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
+	F(300000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
 	F(475000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
 	F(575000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
 	F(700000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
@@ -187,6 +189,8 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gpu_cc_hub_clk_src[] = {
+	F(100000000, P_GPLL0_OUT_MAIN_DIV, 3, 0, 0),
+	F(120000000, P_GPLL0_OUT_MAIN_DIV, 2.5, 0, 0),
 	F(150000000, P_GPLL0_OUT_MAIN_DIV, 2, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
