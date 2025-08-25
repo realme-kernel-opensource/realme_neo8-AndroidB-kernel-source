@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
@@ -22,15 +22,15 @@
 #define CLUSTER_CENTRIC	(1)
 #define CORE_CENTRIC	(2)
 
-struct scmi_protocol_handle *ph_telemetry;
-const struct qcom_scmi_vendor_ops *vendor_ops;
-struct telemetry_global_param_t *telemetry;
-const struct telemetry_counter_attributes_name_t *pname;
-struct telemetry_counter_attributes_value_t *pvalue;
+static struct scmi_protocol_handle *ph_telemetry;
+static const struct qcom_scmi_vendor_ops *vendor_ops;
+static struct telemetry_global_param_t *telemetry;
+static const struct telemetry_counter_attributes_name_t *pname;
+static struct telemetry_counter_attributes_value_t *pvalue;
 static struct dentry *dir;
 static struct dentry **cluster_dir;
 static struct dentry **core_dir;
-u64 *fid;
+static u64 *fid;
 
 /*
  * Unique counter ids are assigned to each telemetry counters,
