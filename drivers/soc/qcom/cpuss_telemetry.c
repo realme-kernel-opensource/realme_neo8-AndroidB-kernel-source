@@ -130,9 +130,6 @@ DEFINE_DEBUGFS_ATTRIBUTE(telemetry_stats_fops, generic_get, NULL, "%llu\n");
 
 static void telemetry_memory_deallocation(void)
 {
-	kfree(fid);
-	kfree(cluster_dir);
-	kfree(core_dir);
 	if (telemetry)
 		iounmap(telemetry);
 	if (pname)
@@ -157,7 +154,7 @@ static int cpuss_telemetry_create_fs_entries(struct scmi_device *sdev)
 	s32 temp = 0;
 	u8 len = 0;
 
-	fid = kcalloc(telemetry->num_max_counters, sizeof(u64), GFP_KERNEL);
+	fid = devm_kcalloc(dev, telemetry->num_max_counters, sizeof(u64), GFP_KERNEL);
 	if (!fid)
 		return -ENOMEM;
 
@@ -168,7 +165,7 @@ static int cpuss_telemetry_create_fs_entries(struct scmi_device *sdev)
 		return -ENOMEM;
 	}
 
-	cluster_dir = kzalloc(sizeof(struct dentry *) *
+	cluster_dir = devm_kzalloc(dev, sizeof(struct dentry *) *
 			telemetry->num_max_cluster, GFP_KERNEL);
 	if (!cluster_dir)
 		return -ENOMEM;
@@ -183,7 +180,7 @@ static int cpuss_telemetry_create_fs_entries(struct scmi_device *sdev)
 		}
 	}
 
-	core_dir = kzalloc(sizeof(struct dentry *) * telemetry->num_max_core, GFP_KERNEL);
+	core_dir = devm_kzalloc(dev, sizeof(struct dentry *) * telemetry->num_max_core, GFP_KERNEL);
 	if (!core_dir)
 		return -ENOMEM;
 
