@@ -145,7 +145,7 @@ static void qcom_create_count_file(struct qcom_stats_prvdata *pdata)
 				&qcom_stats_cluster_cpuss_count_fops);
 		}
 
-		pdata->cpuss_id->ss3_count_id = 58;
+		pdata->cpuss_id->ss3_count_id = 60;
 		debugfs_create_file("SS3_Count", 0400, pdata->cpuss_dir,
 			(void *)&pdata->cpuss_id->ss3_count_id,
 			&qcom_stats_cluster_cpuss_count_fops);
@@ -194,7 +194,7 @@ static void qcom_create_resindency_file(struct qcom_stats_prvdata *pdata)
 				&qcom_stats_cluster_cpuss_residency_fops);
 		}
 
-		pdata->cpuss_id->ss3_residency_id = 59;
+		pdata->cpuss_id->ss3_residency_id = 61;
 		debugfs_create_file("SS3_Residency", 0400, pdata->cpuss_dir,
 			(void *)&pdata->cpuss_id->ss3_residency_id,
 			&qcom_stats_cluster_cpuss_residency_fops);
