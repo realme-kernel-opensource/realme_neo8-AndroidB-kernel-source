@@ -137,3 +137,8 @@ int hgy_virq_rx_unregister(struct hvirq_dbl *dbl)
 {
 	return gh_dbl_rx_unregister(dbl->rx_dbl);
 }
+
+int hgy_init_virt_irq(void)
+{
+	return 0;
+}

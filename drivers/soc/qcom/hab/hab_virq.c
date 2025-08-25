@@ -448,6 +448,10 @@ int hab_create_virq_cdev_node(int index)
 		return result;
 	}
 
+	result = habhyp_init_virt_irq();
+	if (result)
+		pr_err("virq platform registration failed %d\n", result);
+
 	pr_debug("create char device for /dev/hab-virq successful\n");
 	return 0;
 }

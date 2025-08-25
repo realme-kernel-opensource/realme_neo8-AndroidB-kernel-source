@@ -131,6 +131,7 @@ struct hab_driver_ops virtio_ops = {
 	.habhyp_virq_tx_unregister = hgy_virq_tx_unregister,
 	.habhyp_virq_rx_unregister = hgy_virq_rx_unregister,
 	.habhyp_get_virq_num_id = hgy_get_virq_num_id,
+	.habhyp_init_virt_irq = hgy_init_virt_irq,
 };
 
 struct virtio_hab *get_vh(struct virtio_device *vdev)
