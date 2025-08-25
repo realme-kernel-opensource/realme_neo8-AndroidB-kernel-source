@@ -115,5 +115,6 @@ autogvmlv_config = {
     "CONFIG_VIRTIO_MMIO": "m",
     "CONFIG_VIRTIO_MMIO_POLL_RESET": "y",
     "CONFIG_VIRTIO_NET": "m",
+    "CONFIG_VIRTIO_NET_DISABLE_F_DEVICE_STATS": "y",
     "CONFIG_VIRTIO_REGULATOR": "m",
 }
