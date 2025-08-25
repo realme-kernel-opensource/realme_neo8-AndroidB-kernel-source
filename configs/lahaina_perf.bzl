@@ -340,4 +340,5 @@ lahaina_perf_config = {
     "CONFIG_WILC1000_SPI": "n",
     "CONFIG_ZRAM": "m",
     "CONFIG_ZSMALLOC": "m",
+    "CONFIG_ARM64_AMU_EXTN": "n",
 }
