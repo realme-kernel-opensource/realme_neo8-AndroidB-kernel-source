@@ -2659,12 +2659,12 @@ error:
 	bcdev->initialized = false;
 	up_write(&bcdev->state_sem);
 
-	pmic_glink_unregister_client(bcdev->client);
 	cancel_work_sync(&bcdev->usb_type_work);
 	cancel_work_sync(&bcdev->subsys_up_work);
 	cancel_work_sync(&bcdev->battery_check_work);
 	complete(&bcdev->ack);
 	unregister_reboot_notifier(&bcdev->reboot_notifier);
+	pmic_glink_unregister_client(bcdev->client);
 reg_error:
 	if (bcdev->notifier_cookie)
 		panel_event_notifier_unregister(bcdev->notifier_cookie);
@@ -2686,11 +2686,11 @@ static void battery_chg_remove(struct platform_device *pdev)
 	device_init_wakeup(bcdev->dev, false);
 	debugfs_remove_recursive(bcdev->debugfs_dir);
 	class_unregister(&bcdev->battery_class);
-	pmic_glink_unregister_client(bcdev->client);
 	cancel_work_sync(&bcdev->subsys_up_work);
 	cancel_work_sync(&bcdev->usb_type_work);
 	cancel_work_sync(&bcdev->battery_check_work);
 	unregister_reboot_notifier(&bcdev->reboot_notifier);
+	pmic_glink_unregister_client(bcdev->client);
 }
 
 static const struct of_device_id battery_chg_match_table[] = {
