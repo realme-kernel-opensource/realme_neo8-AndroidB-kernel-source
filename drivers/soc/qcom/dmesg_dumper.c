@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.*/
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
@@ -301,7 +303,7 @@ static inline int qcom_ddump_gh_kick(struct qcom_dmesg_dumper *qdd)
 	gh_dbl_flags_t dbl_mask = DDUMP_DBL_MASK;
 	int ret;
 
-	ret = gh_dbl_send(qdd->tx_dbl, &dbl_mask, 0);
+	ret = gh_dbl_send(qdd->tx_dbl, &dbl_mask, GH_DBL_NONBLOCK);
 	if (ret)
 		dev_err(qdd->dev, "failed to raise virq to the sender %d\n", ret);
 
