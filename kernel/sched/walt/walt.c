@@ -4235,6 +4235,7 @@ static void walt_update_irqload(struct rq *rq)
 		wrq->high_irqload = false;
 }
 
+static u64 walt_rotation_stop_hyst_start_ts;
 /**
  * __walt_irq_work_locked() - common function to process work
  * @is_migration: if true, performing migration work, else rollover
@@ -4380,7 +4381,8 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 		spin_lock_irqsave(&sched_ravg_window_lock, flags);
 		wrq = &per_cpu(walt_rq, cpu_of(this_rq()));
 		if ((sched_ravg_window != new_sched_ravg_window) &&
-		    (wc < wrq->window_start + new_sched_ravg_window)) {
+		    (wc < wrq->window_start + new_sched_ravg_window) &&
+		    !walt_rotation_enabled && !walt_rotation_stop_hyst_start_ts) {
 			struct walt_rq *other_wrq;
 
 			for_each_sched_cluster(cluster) {
@@ -4742,14 +4744,23 @@ void walt_rotation_checkpoint(u64 window_start, int nr_giant)
 		for (i = 0; i < num_sched_clusters; i++)
 			freq_cap[HIGH_PERF_CAP][i] = high_perf_cluster_freq_cap[i];
 		high_perf_state_hyst_start_ts = 0;
+		walt_rotation_stop_hyst_start_ts = 0;
 	} else if (!walt_rotation_enabled && prev) {
 		high_perf_state_hyst_start_ts = window_start;
-	} else if (high_perf_state_hyst_start_ts &&
-			(window_start - high_perf_state_hyst_start_ts
-				>= HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC)) {
-		for (i = 0; i < num_sched_clusters; i++)
-			freq_cap[HIGH_PERF_CAP][i] = FREQ_QOS_MAX_DEFAULT_VALUE;
-		high_perf_state_hyst_start_ts = 0;
+		walt_rotation_stop_hyst_start_ts = window_start;
+	} else {
+		if (high_perf_state_hyst_start_ts &&
+				(window_start - high_perf_state_hyst_start_ts
+					>= HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC)) {
+			for (i = 0; i < num_sched_clusters; i++)
+				freq_cap[HIGH_PERF_CAP][i] = FREQ_QOS_MAX_DEFAULT_VALUE;
+			high_perf_state_hyst_start_ts = 0;
+		}
+
+		if (walt_rotation_stop_hyst_start_ts &&
+				(window_start - walt_rotation_stop_hyst_start_ts
+					>= HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC))
+			walt_rotation_stop_hyst_start_ts = 0;
 	}
 
 	update_smart_freq_capacities();
