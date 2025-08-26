@@ -2128,6 +2128,12 @@ static void msm_geni_uart_gsi_rx_cb(void *ptr)
 
 	UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
 		     "%s: Start\n", __func__);
+
+	if (!msm_port->rx_gsi_buf[msm_port->count]) {
+		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev, "%s: Invalid Rx buffer\n", __func__);
+		return;
+	}
+
 	ret = tty_insert_flip_string(tport,
 				     (unsigned char *)
 				     (msm_port->rx_gsi_buf[msm_port->count]),
