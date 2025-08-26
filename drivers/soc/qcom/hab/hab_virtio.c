@@ -953,29 +953,12 @@ static void virthab_remove(struct virtio_device *vdev)
 #ifdef CONFIG_PM_SLEEP
 static int virthab_freeze(struct virtio_device *vdev)
 {
-	struct virtio_hab *vh = get_vh(vdev);
-	unsigned long flags;
-
-	spin_lock_irqsave(&vh->mlock, flags);
-	vh->ready = false;
-	spin_unlock_irqrestore(&vh->mlock, flags);
-
-	vdev->config->del_vqs(vdev);
+	pr_debug("nothing needed to do but just printing a hint\n");
 	return 0;
 }
-
 static int virthab_restore(struct virtio_device *vdev)
 {
-	struct virtio_hab *vh = get_vh(vdev);
-	int err;
-
-	err = virthab_init_vqs(vh);
-	if (err)
-		return err;
-
-	virtio_device_ready(vdev);
-	vh->ready = true;
-	virthab_queue_inbufs(vh, 0);
+	pr_debug("nothing needed to do but just printing a hint\n");
 	return 0;
 }
 #endif
