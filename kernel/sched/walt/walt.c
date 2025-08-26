@@ -70,7 +70,8 @@ static u64 walt_load_reported_window;
 
 struct irq_work walt_cpufreq_irq_work;
 struct irq_work walt_migration_irq_work;
-unsigned int walt_rotation_enabled;
+bool walt_rotation_enabled;
+bool plenty_giant_tasks;
 
 unsigned int __read_mostly sched_ravg_window = 20000000;
 int min_possible_cluster_id;
@@ -4376,7 +4377,7 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 		wrq = &per_cpu(walt_rq, cpu_of(this_rq()));
 		if ((sched_ravg_window != new_sched_ravg_window) &&
 		    (wc < wrq->window_start + new_sched_ravg_window) &&
-		    !walt_rotation_enabled && !walt_rotation_stop_hyst_start_ts) {
+		    !plenty_giant_tasks && !walt_rotation_stop_hyst_start_ts) {
 			struct walt_rq *other_wrq;
 
 			for_each_sched_cluster(cluster) {
@@ -4723,23 +4724,24 @@ void walt_rotation_checkpoint(u64 window_start, int nr_giant)
 {
 	int i;
 	static u64 high_perf_state_hyst_start_ts;
-	bool prev = walt_rotation_enabled;
+	bool prev = plenty_giant_tasks;
 
 	if (!hmp_capable())
 		return;
 
+	plenty_giant_tasks = nr_giant >= num_possible_cpus();
+
 	if (!sysctl_sched_walt_rotate_big_tasks || sched_boost_type != NO_BOOST)
 		walt_rotation_enabled = 0;
 	else
-		walt_rotation_enabled = nr_giant >= num_possible_cpus();
+		walt_rotation_enabled = plenty_giant_tasks;
 
-
-	if (walt_rotation_enabled && !prev) {
+	if (plenty_giant_tasks && !prev) {
 		for (i = 0; i < num_sched_clusters; i++)
 			freq_cap[HIGH_PERF_CAP][i] = high_perf_cluster_freq_cap[i];
 		high_perf_state_hyst_start_ts = 0;
 		walt_rotation_stop_hyst_start_ts = 0;
-	} else if (!walt_rotation_enabled && prev) {
+	} else if (!plenty_giant_tasks && prev) {
 		high_perf_state_hyst_start_ts = window_start;
 		walt_rotation_stop_hyst_start_ts = window_start;
 	} else {

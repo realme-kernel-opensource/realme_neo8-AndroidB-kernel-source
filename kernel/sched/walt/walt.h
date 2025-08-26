@@ -715,7 +715,7 @@ extern unsigned long cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load
 int waltgov_register(void);
 
 extern void walt_lb_init(void);
-extern unsigned int walt_rotation_enabled;
+extern bool walt_rotation_enabled;
 
 extern bool walt_is_idle_task(struct task_struct *p);
 
