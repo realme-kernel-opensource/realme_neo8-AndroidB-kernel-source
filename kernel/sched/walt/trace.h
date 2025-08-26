@@ -447,7 +447,7 @@ TRACE_EVENT(sched_load_to_gov,
 
 	TP_PROTO(struct rq *rq, u64 aggr_grp_load, u32 tt_load,
 		int freq_aggr, u64 nbl, u64 load, int policy,
-		int big_task_rotation,
+		bool big_task_rotation,
 		unsigned int user_hint,
 		struct walt_rq *wrq,
 		unsigned int reasons),
@@ -468,7 +468,7 @@ TRACE_EVENT(sched_load_to_gov,
 		__field(u64,	pl)
 		__field(u64,	nbl)
 		__field(u64,	load)
-		__field(int,	big_task_rotation)
+		__field(bool,	big_task_rotation)
 		__field(unsigned int, user_hint)
 		__field(unsigned int, reasons)
 		__field(u64, util)
