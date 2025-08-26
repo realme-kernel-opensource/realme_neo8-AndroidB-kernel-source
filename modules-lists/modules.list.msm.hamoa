@@ -20,6 +20,7 @@ pinctrl-x1e80100.ko
 cmd-db.ko
 qcom_rpmh.ko
 qnoc-x1p42100.ko
+qnoc-x1e80100.ko
 qnoc-qos.ko
 icc-debug.ko
 icc-bcm-voter.ko
