@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2023, Linaro Limited
- *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/device.h>
@@ -13,9 +12,18 @@
 #include <dt-bindings/interconnect/qcom,x1e80100-rpmh.h>
 
 #include "bcm-voter.h"
-#include "icc-common.h"
 #include "icc-rpmh.h"
 #include "x1e80100.h"
+
+enum {
+	VOTER_IDX_HLOS,
+};
+
+static const struct regmap_config icc_regmap_config = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+};
 
 static struct qcom_icc_node qhm_qspi = {
 	.name = "qhm_qspi",
@@ -1355,19 +1363,23 @@ static struct qcom_icc_node qns_aggre_usb_south_snoc = {
 
 static struct qcom_icc_bcm bcm_acv = {
 	.name = "ACV",
-	.enable_mask = BIT(3),
+	.type = QCOM_ICC_BCM_TYPE_MASK,
+	.voter_idx = VOTER_IDX_HLOS,
+	.perf_mode_mask = 0x2,
 	.num_nodes = 1,
 	.nodes = { &ebi },
 };
 
 static struct qcom_icc_bcm bcm_ce0 = {
 	.name = "CE0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 1,
 	.nodes = { &qxm_crypto },
 };
 
 static struct qcom_icc_bcm bcm_cn0 = {
 	.name = "CN0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.keepalive = true,
 	.num_nodes = 63,
 	.nodes = { &qsm_cfg, &qhs_ahb2phy0,
@@ -1406,24 +1418,28 @@ static struct qcom_icc_bcm bcm_cn0 = {
 
 static struct qcom_icc_bcm bcm_cn1 = {
 	.name = "CN1",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 1,
 	.nodes = { &qhs_display_cfg },
 };
 
 static struct qcom_icc_bcm bcm_co0 = {
 	.name = "CO0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 2,
 	.nodes = { &qxm_nsp, &qns_nsp_gemnoc },
 };
 
 static struct qcom_icc_bcm bcm_lp0 = {
 	.name = "LP0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 2,
 	.nodes = { &qnm_lpass_lpinoc, &qns_lpass_aggnoc },
 };
 
 static struct qcom_icc_bcm bcm_mc0 = {
 	.name = "MC0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.keepalive = true,
 	.num_nodes = 1,
 	.nodes = { &ebi },
@@ -1431,12 +1447,14 @@ static struct qcom_icc_bcm bcm_mc0 = {
 
 static struct qcom_icc_bcm bcm_mm0 = {
 	.name = "MM0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 1,
 	.nodes = { &qns_mem_noc_hf },
 };
 
 static struct qcom_icc_bcm bcm_mm1 = {
 	.name = "MM1",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 10,
 	.nodes = { &qnm_av1_enc, &qnm_camnoc_hf,
 		   &qnm_camnoc_icp, &qnm_camnoc_sf,
@@ -1447,12 +1465,14 @@ static struct qcom_icc_bcm bcm_mm1 = {
 
 static struct qcom_icc_bcm bcm_pc0 = {
 	.name = "PC0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 1,
 	.nodes = { &qns_pcie_mem_noc },
 };
 
 static struct qcom_icc_bcm bcm_qup0 = {
 	.name = "QUP0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.keepalive = true,
 	.vote_scale = 1,
 	.num_nodes = 1,
@@ -1461,6 +1481,7 @@ static struct qcom_icc_bcm bcm_qup0 = {
 
 static struct qcom_icc_bcm bcm_qup1 = {
 	.name = "QUP1",
+	.voter_idx = VOTER_IDX_HLOS,
 	.keepalive = true,
 	.vote_scale = 1,
 	.num_nodes = 1,
@@ -1469,6 +1490,7 @@ static struct qcom_icc_bcm bcm_qup1 = {
 
 static struct qcom_icc_bcm bcm_qup2 = {
 	.name = "QUP2",
+	.voter_idx = VOTER_IDX_HLOS,
 	.keepalive = true,
 	.vote_scale = 1,
 	.num_nodes = 1,
@@ -1477,6 +1499,7 @@ static struct qcom_icc_bcm bcm_qup2 = {
 
 static struct qcom_icc_bcm bcm_sh0 = {
 	.name = "SH0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.keepalive = true,
 	.num_nodes = 1,
 	.nodes = { &qns_llcc },
@@ -1484,6 +1507,7 @@ static struct qcom_icc_bcm bcm_sh0 = {
 
 static struct qcom_icc_bcm bcm_sh1 = {
 	.name = "SH1",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 13,
 	.nodes = { &alm_gpu_tcu, &alm_pcie_tcu,
 		   &alm_sys_tcu, &chm_apps,
@@ -1496,6 +1520,7 @@ static struct qcom_icc_bcm bcm_sh1 = {
 
 static struct qcom_icc_bcm bcm_sn0 = {
 	.name = "SN0",
+	.voter_idx = VOTER_IDX_HLOS,
 	.keepalive = true,
 	.num_nodes = 1,
 	.nodes = { &qns_gemnoc_sf },
@@ -1503,18 +1528,21 @@ static struct qcom_icc_bcm bcm_sn0 = {
 
 static struct qcom_icc_bcm bcm_sn2 = {
 	.name = "SN2",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 1,
 	.nodes = { &qnm_aggre1_noc },
 };
 
 static struct qcom_icc_bcm bcm_sn3 = {
 	.name = "SN3",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 1,
 	.nodes = { &qnm_aggre2_noc },
 };
 
 static struct qcom_icc_bcm bcm_sn4 = {
 	.name = "SN4",
+	.voter_idx = VOTER_IDX_HLOS,
 	.num_nodes = 1,
 	.nodes = { &qnm_usb_anoc },
 };
@@ -1530,11 +1558,18 @@ static struct qcom_icc_node * const aggre1_noc_nodes[] = {
 	[SLAVE_A1NOC_SNOC] = &qns_a1noc_snoc,
 };
 
+static char *aggre1_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_aggre1_noc = {
+	.config = &icc_regmap_config,
 	.nodes = aggre1_noc_nodes,
 	.num_nodes = ARRAY_SIZE(aggre1_noc_nodes),
 	.bcms = aggre1_noc_bcms,
 	.num_bcms = ARRAY_SIZE(aggre1_noc_bcms),
+	.voters = aggre1_noc_voters,
+	.num_voters = ARRAY_SIZE(aggre1_noc_voters),
 };
 
 static struct qcom_icc_bcm * const aggre2_noc_bcms[] = {
@@ -1552,11 +1587,18 @@ static struct qcom_icc_node * const aggre2_noc_nodes[] = {
 	[SLAVE_A2NOC_SNOC] = &qns_a2noc_snoc,
 };
 
+static char *aggre2_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_aggre2_noc = {
+	.config = &icc_regmap_config,
 	.nodes = aggre2_noc_nodes,
 	.num_nodes = ARRAY_SIZE(aggre2_noc_nodes),
 	.bcms = aggre2_noc_bcms,
 	.num_bcms = ARRAY_SIZE(aggre2_noc_bcms),
+	.voters = aggre2_noc_voters,
+	.num_voters = ARRAY_SIZE(aggre2_noc_voters),
 };
 
 static struct qcom_icc_bcm * const clk_virt_bcms[] = {
@@ -1574,11 +1616,18 @@ static struct qcom_icc_node * const clk_virt_nodes[] = {
 	[SLAVE_QUP_CORE_2] = &qup2_core_slave,
 };
 
+static char *clk_virt_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_clk_virt = {
+	.config = &icc_regmap_config,
 	.nodes = clk_virt_nodes,
 	.num_nodes = ARRAY_SIZE(clk_virt_nodes),
 	.bcms = clk_virt_bcms,
 	.num_bcms = ARRAY_SIZE(clk_virt_bcms),
+	.voters = clk_virt_voters,
+	.num_voters = ARRAY_SIZE(clk_virt_voters),
 };
 
 static struct qcom_icc_bcm * const cnoc_cfg_bcms[] = {
@@ -1637,11 +1686,18 @@ static struct qcom_icc_node * const cnoc_cfg_nodes[] = {
 	[SLAVE_TCU] = &xs_sys_tcu_cfg,
 };
 
+static char *cnoc_cfg_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_cnoc_cfg = {
+	.config = &icc_regmap_config,
 	.nodes = cnoc_cfg_nodes,
 	.num_nodes = ARRAY_SIZE(cnoc_cfg_nodes),
 	.bcms = cnoc_cfg_bcms,
 	.num_bcms = ARRAY_SIZE(cnoc_cfg_bcms),
+	.voters = cnoc_cfg_voters,
+	.num_voters = ARRAY_SIZE(cnoc_cfg_voters),
 };
 
 static struct qcom_icc_bcm * const cnoc_main_bcms[] = {
@@ -1667,11 +1723,18 @@ static struct qcom_icc_node * const cnoc_main_nodes[] = {
 	[SLAVE_PCIE_6B] = &xs_pcie_6b,
 };
 
+static char *cnoc_main_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_cnoc_main = {
+	.config = &icc_regmap_config,
 	.nodes = cnoc_main_nodes,
 	.num_nodes = ARRAY_SIZE(cnoc_main_nodes),
 	.bcms = cnoc_main_bcms,
 	.num_bcms = ARRAY_SIZE(cnoc_main_bcms),
+	.voters = cnoc_main_voters,
+	.num_voters = ARRAY_SIZE(cnoc_main_voters),
 };
 
 static struct qcom_icc_bcm * const gem_noc_bcms[] = {
@@ -1697,11 +1760,18 @@ static struct qcom_icc_node * const gem_noc_nodes[] = {
 	[SLAVE_MEM_NOC_PCIE_SNOC] = &qns_pcie,
 };
 
+static char *gem_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_gem_noc = {
+	.config = &icc_regmap_config,
 	.nodes = gem_noc_nodes,
 	.num_nodes = ARRAY_SIZE(gem_noc_nodes),
 	.bcms = gem_noc_bcms,
 	.num_bcms = ARRAY_SIZE(gem_noc_bcms),
+	.voters = gem_noc_voters,
+	.num_voters = ARRAY_SIZE(gem_noc_voters),
 };
 
 static struct qcom_icc_bcm * const lpass_ag_noc_bcms[] = {
@@ -1712,11 +1782,18 @@ static struct qcom_icc_node * const lpass_ag_noc_nodes[] = {
 	[SLAVE_LPASS_GEM_NOC] = &qns_lpass_ag_noc_gemnoc,
 };
 
+static char *lpass_ag_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_lpass_ag_noc = {
+	.config = &icc_regmap_config,
 	.nodes = lpass_ag_noc_nodes,
 	.num_nodes = ARRAY_SIZE(lpass_ag_noc_nodes),
 	.bcms = lpass_ag_noc_bcms,
 	.num_bcms = ARRAY_SIZE(lpass_ag_noc_bcms),
+	.voters = lpass_ag_noc_voters,
+	.num_voters = ARRAY_SIZE(lpass_ag_noc_voters),
 };
 
 static struct qcom_icc_bcm * const lpass_lpiaon_noc_bcms[] = {
@@ -1728,11 +1805,18 @@ static struct qcom_icc_node * const lpass_lpiaon_noc_nodes[] = {
 	[SLAVE_LPIAON_NOC_LPASS_AG_NOC] = &qns_lpass_aggnoc,
 };
 
+static char *lpass_lpiaon_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_lpass_lpiaon_noc = {
+	.config = &icc_regmap_config,
 	.nodes = lpass_lpiaon_noc_nodes,
 	.num_nodes = ARRAY_SIZE(lpass_lpiaon_noc_nodes),
 	.bcms = lpass_lpiaon_noc_bcms,
 	.num_bcms = ARRAY_SIZE(lpass_lpiaon_noc_bcms),
+	.voters = lpass_lpiaon_noc_voters,
+	.num_voters = ARRAY_SIZE(lpass_lpiaon_noc_voters),
 };
 
 static struct qcom_icc_bcm * const lpass_lpicx_noc_bcms[] = {
@@ -1743,11 +1827,18 @@ static struct qcom_icc_node * const lpass_lpicx_noc_nodes[] = {
 	[SLAVE_LPICX_NOC_LPIAON_NOC] = &qns_lpi_aon_noc,
 };
 
+static char *lpass_lpicx_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_lpass_lpicx_noc = {
+	.config = &icc_regmap_config,
 	.nodes = lpass_lpicx_noc_nodes,
 	.num_nodes = ARRAY_SIZE(lpass_lpicx_noc_nodes),
 	.bcms = lpass_lpicx_noc_bcms,
 	.num_bcms = ARRAY_SIZE(lpass_lpicx_noc_bcms),
+	.voters = lpass_lpicx_noc_voters,
+	.num_voters = ARRAY_SIZE(lpass_lpicx_noc_voters),
 };
 
 static struct qcom_icc_bcm * const mc_virt_bcms[] = {
@@ -1760,11 +1851,18 @@ static struct qcom_icc_node * const mc_virt_nodes[] = {
 	[SLAVE_EBI1] = &ebi,
 };
 
+static char *mc_virt_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_mc_virt = {
+	.config = &icc_regmap_config,
 	.nodes = mc_virt_nodes,
 	.num_nodes = ARRAY_SIZE(mc_virt_nodes),
 	.bcms = mc_virt_bcms,
 	.num_bcms = ARRAY_SIZE(mc_virt_bcms),
+	.voters = mc_virt_voters,
+	.num_voters = ARRAY_SIZE(mc_virt_voters),
 };
 
 static struct qcom_icc_bcm * const mmss_noc_bcms[] = {
@@ -1788,11 +1886,18 @@ static struct qcom_icc_node * const mmss_noc_nodes[] = {
 	[SLAVE_SERVICE_MNOC] = &srvc_mnoc,
 };
 
+static char *mmss_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_mmss_noc = {
+	.config = &icc_regmap_config,
 	.nodes = mmss_noc_nodes,
 	.num_nodes = ARRAY_SIZE(mmss_noc_nodes),
 	.bcms = mmss_noc_bcms,
 	.num_bcms = ARRAY_SIZE(mmss_noc_bcms),
+	.voters = mmss_noc_voters,
+	.num_voters = ARRAY_SIZE(mmss_noc_voters),
 };
 
 static struct qcom_icc_bcm * const nsp_noc_bcms[] = {
@@ -1804,11 +1909,18 @@ static struct qcom_icc_node * const nsp_noc_nodes[] = {
 	[SLAVE_CDSP_MEM_NOC] = &qns_nsp_gemnoc,
 };
 
+static char *nsp_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_nsp_noc = {
+	.config = &icc_regmap_config,
 	.nodes = nsp_noc_nodes,
 	.num_nodes = ARRAY_SIZE(nsp_noc_nodes),
 	.bcms = nsp_noc_bcms,
 	.num_bcms = ARRAY_SIZE(nsp_noc_bcms),
+	.voters = nsp_noc_voters,
+	.num_voters = ARRAY_SIZE(nsp_noc_voters),
 };
 
 static struct qcom_icc_bcm * const pcie_center_anoc_bcms[] = {
@@ -1821,11 +1933,18 @@ static struct qcom_icc_node * const pcie_center_anoc_nodes[] = {
 	[SLAVE_ANOC_PCIE_GEM_NOC] = &qns_pcie_mem_noc,
 };
 
+static char *pcie_center_anoc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_pcie_center_anoc = {
+	.config = &icc_regmap_config,
 	.nodes = pcie_center_anoc_nodes,
 	.num_nodes = ARRAY_SIZE(pcie_center_anoc_nodes),
 	.bcms = pcie_center_anoc_bcms,
 	.num_bcms = ARRAY_SIZE(pcie_center_anoc_bcms),
+	.voters = pcie_center_anoc_voters,
+	.num_voters = ARRAY_SIZE(pcie_center_anoc_voters),
 };
 
 static struct qcom_icc_bcm * const pcie_north_anoc_bcms[] = {
@@ -1838,11 +1957,18 @@ static struct qcom_icc_node * const pcie_north_anoc_nodes[] = {
 	[SLAVE_PCIE_NORTH] = &qns_pcie_north_gem_noc,
 };
 
+static char *pcie_north_anoc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_pcie_north_anoc = {
+	.config = &icc_regmap_config,
 	.nodes = pcie_north_anoc_nodes,
 	.num_nodes = ARRAY_SIZE(pcie_north_anoc_nodes),
 	.bcms = pcie_north_anoc_bcms,
 	.num_bcms = ARRAY_SIZE(pcie_north_anoc_bcms),
+	.voters = pcie_north_anoc_voters,
+	.num_voters = ARRAY_SIZE(pcie_north_anoc_voters),
 };
 
 static struct qcom_icc_bcm * const pcie_south_anoc_bcms[] = {
@@ -1857,11 +1983,18 @@ static struct qcom_icc_node * const pcie_south_anoc_nodes[] = {
 	[SLAVE_PCIE_SOUTH] = &qns_pcie_south_gem_noc,
 };
 
+static char *pcie_south_anoc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_pcie_south_anoc = {
+	.config = &icc_regmap_config,
 	.nodes = pcie_south_anoc_nodes,
 	.num_nodes = ARRAY_SIZE(pcie_south_anoc_nodes),
 	.bcms = pcie_south_anoc_bcms,
 	.num_bcms = ARRAY_SIZE(pcie_south_anoc_bcms),
+	.voters = pcie_south_anoc_voters,
+	.num_voters = ARRAY_SIZE(pcie_south_anoc_voters),
 };
 
 static struct qcom_icc_bcm * const system_noc_bcms[] = {
@@ -1879,11 +2012,18 @@ static struct qcom_icc_node * const system_noc_nodes[] = {
 	[SLAVE_SNOC_GEM_NOC_SF] = &qns_gemnoc_sf,
 };
 
+static char *system_noc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_system_noc = {
+	.config = &icc_regmap_config,
 	.nodes = system_noc_nodes,
 	.num_nodes = ARRAY_SIZE(system_noc_nodes),
 	.bcms = system_noc_bcms,
 	.num_bcms = ARRAY_SIZE(system_noc_bcms),
+	.voters = system_noc_voters,
+	.num_voters = ARRAY_SIZE(system_noc_voters),
 };
 
 static struct qcom_icc_bcm * const usb_center_anoc_bcms[] = {
@@ -1895,11 +2035,18 @@ static struct qcom_icc_node * const usb_center_anoc_nodes[] = {
 	[SLAVE_USB_NOC_SNOC] = &qns_aggre_usb_snoc,
 };
 
+static char *usb_center_anoc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_usb_center_anoc = {
+	.config = &icc_regmap_config,
 	.nodes = usb_center_anoc_nodes,
 	.num_nodes = ARRAY_SIZE(usb_center_anoc_nodes),
 	.bcms = usb_center_anoc_bcms,
 	.num_bcms = ARRAY_SIZE(usb_center_anoc_bcms),
+	.voters = usb_center_anoc_voters,
+	.num_voters = ARRAY_SIZE(usb_center_anoc_voters),
 };
 
 static struct qcom_icc_bcm * const usb_north_anoc_bcms[] = {
@@ -1911,11 +2058,18 @@ static struct qcom_icc_node * const usb_north_anoc_nodes[] = {
 	[SLAVE_AGGRE_USB_NORTH] = &qns_aggre_usb_north_snoc,
 };
 
+static char *usb_north_anoc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_usb_north_anoc = {
+	.config = &icc_regmap_config,
 	.nodes = usb_north_anoc_nodes,
 	.num_nodes = ARRAY_SIZE(usb_north_anoc_nodes),
 	.bcms = usb_north_anoc_bcms,
 	.num_bcms = ARRAY_SIZE(usb_north_anoc_bcms),
+	.voters = usb_north_anoc_voters,
+	.num_voters = ARRAY_SIZE(usb_north_anoc_voters),
 };
 
 static struct qcom_icc_bcm * const usb_south_anoc_bcms[] = {
@@ -1931,11 +2085,18 @@ static struct qcom_icc_node * const usb_south_anoc_nodes[] = {
 	[SLAVE_AGGRE_USB_SOUTH] = &qns_aggre_usb_south_snoc,
 };
 
+static char *usb_south_anoc_voters[] = {
+	[VOTER_IDX_HLOS] = "hlos",
+};
+
 static const struct qcom_icc_desc x1e80100_usb_south_anoc = {
+	.config = &icc_regmap_config,
 	.nodes = usb_south_anoc_nodes,
 	.num_nodes = ARRAY_SIZE(usb_south_anoc_nodes),
 	.bcms = usb_south_anoc_bcms,
 	.num_bcms = ARRAY_SIZE(usb_south_anoc_bcms),
+	.voters = usb_south_anoc_voters,
+	.num_voters = ARRAY_SIZE(usb_south_anoc_voters),
 };
 
 static const struct of_device_id qnoc_of_match[] = {
