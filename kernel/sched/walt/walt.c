@@ -4737,13 +4737,29 @@ void walt_rotation_checkpoint(u64 window_start, int nr_giant)
 		walt_rotation_enabled = plenty_giant_tasks;
 
 	if (plenty_giant_tasks && !prev) {
+		walt_rotation_stop_hyst_start_ts = 0;
+	} else if (!plenty_giant_tasks && prev) {
+		walt_rotation_stop_hyst_start_ts = window_start;
+	} else {
+		if (walt_rotation_stop_hyst_start_ts &&
+				(window_start - walt_rotation_stop_hyst_start_ts >=
+					HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC))
+			walt_rotation_stop_hyst_start_ts = 0;
+	}
+
+	if (sched_boost_type != NO_BOOST) {
+		for (i = 0; i < num_sched_clusters; i++)
+			freq_cap[HIGH_PERF_CAP][i] = FREQ_QOS_MAX_DEFAULT_VALUE;
+		high_perf_state_hyst_start_ts = 0;
+		goto adjust_smart_freq_capacities;
+	}
+
+	if (plenty_giant_tasks && !prev) {
 		for (i = 0; i < num_sched_clusters; i++)
 			freq_cap[HIGH_PERF_CAP][i] = high_perf_cluster_freq_cap[i];
 		high_perf_state_hyst_start_ts = 0;
-		walt_rotation_stop_hyst_start_ts = 0;
 	} else if (!plenty_giant_tasks && prev) {
 		high_perf_state_hyst_start_ts = window_start;
-		walt_rotation_stop_hyst_start_ts = window_start;
 	} else {
 		if (high_perf_state_hyst_start_ts &&
 				(window_start - high_perf_state_hyst_start_ts
@@ -4752,13 +4768,9 @@ void walt_rotation_checkpoint(u64 window_start, int nr_giant)
 				freq_cap[HIGH_PERF_CAP][i] = FREQ_QOS_MAX_DEFAULT_VALUE;
 			high_perf_state_hyst_start_ts = 0;
 		}
-
-		if (walt_rotation_stop_hyst_start_ts &&
-				(window_start - walt_rotation_stop_hyst_start_ts
-					>= HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC))
-			walt_rotation_stop_hyst_start_ts = 0;
 	}
 
+adjust_smart_freq_capacities:
 	update_smart_freq_capacities();
 }
 
