@@ -20,7 +20,6 @@ u32 total_util;
 u32 least_pipeline_demand;
 static bool top_wts_bias;
 
-#define SCALING_FACTOR 70
 #define IPC_DEGRADATION_FACTOR 115
 #define PIPELINE_2L_FACTOR 95
 #define REARRANGE_HYST_MS	100ULL
@@ -37,6 +36,12 @@ void pipeline_demand(struct walt_task_struct *wts, u64 *scaled_gold_demand,
 	u64 util =  scale_time_to_util(wts->coloc_demand);
 	int cpu = task_cpu(wts_to_ts(wts));
 
+	if (demand_scaling_factor == 100) {
+		*scaled_prime_demand = util;
+		*scaled_gold_demand = util;
+		return;
+	}
+
 	/*
 	 * TODO:
 	 * Assume that a task not on prime is on golds.
@@ -44,10 +49,10 @@ void pipeline_demand(struct walt_task_struct *wts, u64 *scaled_gold_demand,
 	 */
 	if (cpumask_test_cpu(cpu,  &sched_cluster[num_sched_clusters - 1]->cpus)) {
 		*scaled_prime_demand = util;
-		*scaled_gold_demand = mult_frac(util, 100, SCALING_FACTOR);
+		*scaled_gold_demand = mult_frac(util, 100, demand_scaling_factor);
 	} else {
 		*scaled_gold_demand = util;
-		*scaled_prime_demand = mult_frac(util, SCALING_FACTOR, 100);
+		*scaled_prime_demand = mult_frac(util, demand_scaling_factor, 100);
 	}
 }
 
