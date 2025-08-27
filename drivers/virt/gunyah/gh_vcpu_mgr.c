@@ -256,6 +256,10 @@ static int gh_unpopulate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 	vm = gh_get_vm(vmid);
 	if (vm && vm->is_vcpu_info_populated) {
 		vcpu = xa_load(&vm->vcpus, cpu_idx);
+		if (!vcpu) {
+			mutex_unlock(&gh_vm_mutex);
+			goto out;
+		}
 		if (vcpu->vcpu_thread && vcpu->gunyah_vcpu) {
 			vcpu->gunyah_vcpu->vcpu_run->immediate_exit = true;
 			complete_all(&vcpu->gunyah_vcpu->ready);
