@@ -1720,6 +1720,7 @@ extern unsigned int sysctl_pipeline_pin_thres_low_pct;
 extern unsigned int sysctl_pipeline_pin_thres_high_pct;
 extern unsigned int sysctl_pipeline_rearrange_delay_ms[2];
 extern unsigned int demand_scaling_factor;
+extern unsigned int min_demand_for_activity_cnt;
 DECLARE_PER_CPU(unsigned int, walt_yield_to_sleep);
 extern unsigned int walt_sched_yield_counter;
 extern unsigned int sysctl_force_frequent_yielder;
