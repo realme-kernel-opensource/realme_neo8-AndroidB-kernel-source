@@ -57,6 +57,7 @@
 #define IOVA_XFER_BUF_MAX (0xfffff000 - PAGE_SIZE)
 
 #define MAX_XFER_BUFF_LEN (24 * PAGE_SIZE)
+#define EP_MASK 0x7F
 
 struct xhci_ring;
 
@@ -1126,8 +1127,8 @@ static int uaudio_sb_notifier(struct usb_interface *intf,
 		unsigned int *ep = (unsigned int *) evt->evt_data;
 
 		for (if_idx = 0; if_idx < dev->num_intf; if_idx++) {
-			if (dev->info[if_idx].data_ep_idx == *ep ||
-			    dev->info[if_idx].sync_ep_idx == *ep)
+			if ((dev->info[if_idx].data_ep_idx & EP_MASK) == *ep
+			 || (dev->info[if_idx].sync_ep_idx & EP_MASK) == *ep)
 				uaudio_send_disconnect_ind(chip);
 		}
 	}
