@@ -4379,11 +4379,15 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 	 * not rolled over properly as mark_start > window_start.
 	 */
 	if (!is_migration) {
+		u64 temp_sched_ravg_window;
 		spin_lock_irqsave(&sched_ravg_window_lock, flags);
+		if (plenty_giant_tasks || walt_rotation_stop_hyst_start_ts)
+			temp_sched_ravg_window = mult_frac(2, NSEC_PER_SEC, HZ);
+		else
+			temp_sched_ravg_window = new_sched_ravg_window;
 		wrq = &per_cpu(walt_rq, cpu_of(this_rq()));
-		if ((sched_ravg_window != new_sched_ravg_window) &&
-		    (wc < wrq->window_start + new_sched_ravg_window) &&
-		    !plenty_giant_tasks && !walt_rotation_stop_hyst_start_ts) {
+		if ((sched_ravg_window != temp_sched_ravg_window) &&
+		    (wc < wrq->window_start + temp_sched_ravg_window)) {
 			struct walt_rq *other_wrq;
 
 			for_each_sched_cluster(cluster) {
@@ -4398,9 +4402,9 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 			}
 			sched_ravg_window_change_time = walt_sched_clock();
 			trace_sched_ravg_window_change(sched_ravg_window,
-					new_sched_ravg_window,
+					temp_sched_ravg_window,
 					sched_ravg_window_change_time);
-			sched_ravg_window = new_sched_ravg_window;
+			sched_ravg_window = temp_sched_ravg_window;
 			walt_tunables_fixup();
 		}
 out:
