@@ -13,6 +13,8 @@ arch/arm64/crypto/ghash-ce-glue.c
 arch/arm64/crypto/poly1305-glue.c
 arch/arm64/crypto/polyval-ce-core.S
 arch/arm64/crypto/polyval-ce-glue.c
+arch/arm64/crypto/sha1-ce-core.S
+arch/arm64/crypto/sha1-ce-glue.c
 arch/arm64/crypto/sha2-ce-core.S
 arch/arm64/crypto/sha2-ce-glue.c
 arch/arm64/crypto/sha256-glue.c
@@ -669,6 +671,7 @@ drivers/android/binder/context.rs
 drivers/android/binder/deferred_close.rs
 drivers/android/binder/defs.rs
 drivers/android/binder/error.rs
+drivers/android/binder/freeze.rs
 drivers/android/binder/node.rs
 drivers/android/binder/node/wrapper.rs
 drivers/android/binder/page_range.rs
@@ -1155,6 +1158,7 @@ drivers/hid/hid-wiimote.h
 drivers/hid/hidraw.c
 drivers/hid/uhid.c
 drivers/hid/usbhid/hid-core.c
+drivers/hid/usbhid/hid-pidff.h
 drivers/hid/usbhid/hiddev.c
 drivers/hid/usbhid/usbhid.h
 drivers/hid/wacom.h
@@ -1221,6 +1225,7 @@ drivers/iommu/iommu-traces.c
 drivers/iommu/iommu.c
 drivers/iommu/iova.c
 drivers/iommu/of_iommu.c
+drivers/iommu/pkvm-pviommu.c
 drivers/irqchip/irq-gic-common.c
 drivers/irqchip/irq-gic-common.h
 drivers/irqchip/irq-gic-v2m.c
@@ -1734,7 +1739,6 @@ drivers/spmi/spmi.c
 drivers/staging/android/ashmem.h
 drivers/staging/android/ashmem_range.rs
 drivers/staging/android/ashmem_rust.rs
-drivers/staging/android/ashmem_rust_exports.c
 drivers/staging/android/ashmem_shrinker.rs
 drivers/staging/android/ashmem_toggle.rs
 drivers/staging/android/shmem.rs
@@ -4620,6 +4624,7 @@ include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/gunyah.h
+include/trace/hooks/gzvm.h
 include/trace/hooks/health_report.h
 include/trace/hooks/hung_task.h
 include/trace/hooks/iommu.h
@@ -4643,6 +4648,7 @@ include/trace/hooks/sched.h
 include/trace/hooks/selinux.h
 include/trace/hooks/signal.h
 include/trace/hooks/softlockup.h
+include/trace/hooks/suspend.h
 include/trace/hooks/sys.h
 include/trace/hooks/syscall_check.h
 include/trace/hooks/sysrqcrash.h
@@ -4651,8 +4657,6 @@ include/trace/hooks/timer.h
 include/trace/hooks/topology.h
 include/trace/hooks/traps.h
 include/trace/hooks/ufshcd.h
-include/trace/hooks/usb.h
-include/trace/hooks/user.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/vmscan.h
 include/trace/hooks/wqlockup.h
@@ -6782,6 +6786,7 @@ rust/helpers/mm.c
 rust/helpers/mman.c
 rust/helpers/mutex.c
 rust/helpers/page.c
+rust/helpers/poll.c
 rust/helpers/rbtree.c
 rust/helpers/refcount.c
 rust/helpers/security.c
