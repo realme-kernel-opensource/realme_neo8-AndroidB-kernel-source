@@ -959,6 +959,9 @@ static bool is_memdump_imem_area_intact(struct platform_device *pdev,
 		sizeof(memdump.table_phys), GFP_KERNEL);
 	size_t size_data;
 
+	if (!table_data)
+		return false;
+
 	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-mem_dump_table");
 	if (!np)
 		return false;
