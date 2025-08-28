@@ -1644,6 +1644,10 @@ static irqreturn_t wcd_usbss_sdam_notifier_handler(int irq, void *data)
 	size_t len = 0;
 	int rc = 0;
 
+	/* Exit when wcd_usbss_ctxt_ is NULL */
+	if (WARN_ON(wcd_usbss_ctxt_ == NULL))
+		goto exit;
+
 	buf = nvmem_cell_read(priv->nvmem_cell, &len);
 	if (IS_ERR(buf)) {
 		rc = PTR_ERR(buf);
@@ -1692,6 +1696,7 @@ release_runtime:
 unlock_mutex:
 	mutex_unlock(&wcd_usbss_ctxt_->switch_update_lock);
 	kfree(buf);
+exit:
 	return IRQ_HANDLED;
 }
 
@@ -1900,6 +1905,7 @@ static void wcd_usbss_remove(struct i2c_client *i2c)
 	wcd_usbss_disable_surge_kthread();
 	typec_mux_unregister(priv->mux);
 	cancel_work_sync(&priv->usbc_analog_work);
+	free_irq(priv->client->irq, priv);
 	pm_relax(priv->dev);
 	mutex_destroy(&priv->notification_lock);
 	mutex_destroy(&priv->io_lock);
@@ -1929,6 +1935,7 @@ static void wcd_usbss_shutdown(struct i2c_client *i2c)
 				__func__, error);
 
 	wcd_usbss_disable_surge_kthread();
+	free_irq(priv->client->irq, priv);
 	if (error >= 0)
 		pm_runtime_put_sync(priv->dev);
 	pm_runtime_dont_use_autosuspend(priv->dev);
