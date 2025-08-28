@@ -79,6 +79,12 @@ COPY_FILES = [
     "net/wireless/wext-proc.c",
     "net/wireless/wext-sme.c",
     "net/wireless/wext-spy.c",
+    "net/sched/sch_mqprio.c",
+    "net/sched/sch_mqprio_lib.c",
+    "net/sched/sch_mqprio_lib.h",
+    "net/sched/sch_cbs.c",
+    "net/sched/sch_etf.c",
+    "net/sched/cls_flower.c",
     # cfg80211.ko files end
     "drivers/mfd/qcom-pm8008.c",
     "drivers/regulator/qcom-pm8008-regulator.c",
