@@ -72,6 +72,11 @@ bias_to_this_cpu(struct task_struct *p, int cpu, int start_cpu)
 
 	bool start_cap_test = !check_for_higher_capacity(start_cpu, cpu);
 
+	if (soc_feat(SOC_ENABLE_LIMIT_PRIME_USAGE) &&
+			cpumask_test_cpu(cpu, &cpu_array[0][num_sched_clusters-1]) &&
+			!cpumask_test_cpu(start_cpu, &cpu_array[0][num_sched_clusters-1]))
+		return false;
+
 	return base_test && start_cap_test;
 }
 
