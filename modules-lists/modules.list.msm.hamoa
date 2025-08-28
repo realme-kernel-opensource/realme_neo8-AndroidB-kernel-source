@@ -58,3 +58,10 @@ clk-rpmh.ko
 gcc-x1p42100.ko
 tcsrcc-x1e80100.ko
 dispcc-x1e80100.ko
+regmap-spmi.ko
+qti-regmap-debugfs.ko
+qcom-spmi-pmic.ko
+nvmem_qcom-spmi-sdam.ko
+rtc-pm8xxx.ko
+pmic-pon-log.ko
+pinctrl-spmi-gpio.ko
