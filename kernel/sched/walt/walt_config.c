@@ -185,6 +185,14 @@ void walt_config(void)
 		soc_feat_unset(SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT);
 		if (strcmp(name, "ALOR_INTERPOSER") && strcmp(name, "ALOR"))
 			demand_scaling_factor = 70;
+
+		/*
+		 * By default this SOC flag will be disabled. Enable this only
+		 * for Alor platforms
+		 */
+		if (!strcmp(name, "ALOR_INTERPOSER") || !strcmp(name, "ALOR"))
+			soc_feat_set(SOC_ENABLE_LIMIT_PRIME_USAGE);
+
 	} else if (!strcmp(name, "PINEAPPLE")) {
 		soc_feat_set(SOC_ENABLE_SILVER_RT_SPREAD_BIT);
 		soc_feat_set(SOC_ENABLE_BOOST_TO_NEXT_CLUSTER_BIT);
