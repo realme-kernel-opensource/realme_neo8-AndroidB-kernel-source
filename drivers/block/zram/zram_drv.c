@@ -1911,8 +1911,7 @@ static void zram_compress_success_handler(struct qpace_event_descriptor *ed, int
 	}
 
 	handle = zs_malloc(zmeta->zram->mem_pool, comp_len,
-			   __GFP_KSWAPD_RECLAIM |
-			   __GFP_NOWARN |
+			   GFP_NOIO |
 			   __GFP_HIGHMEM |
 			   __GFP_MOVABLE);
 	if (IS_ERR_VALUE(handle)) {
