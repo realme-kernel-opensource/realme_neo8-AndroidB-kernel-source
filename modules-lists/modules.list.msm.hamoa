@@ -56,6 +56,7 @@ clk-dummy.ko
 clk-qcom.ko
 clk-rpmh.ko
 gcc-x1p42100.ko
+gcc-x1e80100.ko
 tcsrcc-x1e80100.ko
 dispcc-x1e80100.ko
 regmap-spmi.ko
