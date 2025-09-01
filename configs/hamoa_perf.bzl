@@ -135,6 +135,7 @@ hamoa_perf_config = {
     "CONFIG_QCOM_SPMI_ADC5_GEN3": "m",
     "CONFIG_QCOM_SPMI_TEMP_ALARM": "m",
     "CONFIG_QCOM_SYSMON": "m",
+    "CONFIG_QCOM_TSENS": "m",
     "CONFIG_QCOM_TZMEM": "m",
     "CONFIG_QCOM_TZMEM_MODE_GENERIC": "y",
     "CONFIG_QCOM_VADC_COMMON": "m",
