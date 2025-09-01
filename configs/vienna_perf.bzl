@@ -172,6 +172,7 @@ vienna_perf_config = {
     "CONFIG_QTI_BATTERY_GLINK_DEBUG": "m",
     "CONFIG_QTI_BCL_PMIC5": "m",
     "CONFIG_QTI_BCL_SOC_DRIVER": "m",
+    "CONFIG_QTI_CHARGER_NFC_VREG": "y",
     "CONFIG_QTI_CHARGER_ULOG_GLINK": "m",
     "CONFIG_QTI_CPUCP_LOG": "m",
     "CONFIG_QTI_CPUFREQ_CDEV": "m",
