@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  */
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -163,6 +163,15 @@ static const char * const drv_names_alor[][MAX_DRV_NAMES] = {
 			"SOCCP", "DDR AUX", "ARC CPRF", ""},
 	[AOSS_DRV_NAME] = {"APPS", "WPSS", "AUDIO", "AOP", "DEBUG", "GPU", "DISPLAY", "COMPUTE",
 			"TME", "MODEM", "WLAN RF", "WLAN BB", "CAM", "PCIE", "MM", "SOCCP", ""},
+};
+
+static const char * const drv_names_x1e80100[][MAX_DRV_NAMES] = {
+	[CXPC_DRV_NAME] = {"TZ", "L3", "HLOS", "HYP", "SECPROC", "AUDIO", "AOP", "DEBUG",
+			"GPU", "DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW", "MDM SW", "MDM HW",
+			"WLAN RF", "WLAN BB", "CAM_IFE0", "CAM_IFE1", "CAM_IFE2", "PCIE",
+			"DDR AUX", "ARC CPRF", ""},
+	[AOSS_DRV_NAME] = {"APPS", "SP", "AUDIO", "AOP", "DEBUG", "GPU", "DISPLAY", "COMPUTE",
+			"TME", "MODEM", "WLAN RF", "WLAN BB", "CAM", "PCIE", ""},
 };
 
 static ssize_t debug_time_ms_show(struct device *dev,
@@ -575,6 +584,8 @@ static const struct of_device_id drv_match_table[] = {
 	  .data = drv_names_vienna },
 	{ .compatible = "qcom,sys-pm-alor",
 	  .data = drv_names_alor },
+	{ .compatible = "qcom,sys-pm-x1e80100",
+	  .data = drv_names_x1e80100 },
 	{ }
 };
 
