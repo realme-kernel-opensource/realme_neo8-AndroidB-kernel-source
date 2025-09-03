@@ -3658,6 +3658,15 @@ static int haptics_erase(struct input_dev *dev, int effect_id)
 		}
 	}
 
+	/*
+	 * Disable auto resonance after SPMI playback so that SWR playback can
+	 * benefit from it and won't require disabling it each time before
+	 * triggering SWR playback.
+	 */
+	rc = haptics_enable_autores(chip, false);
+	if (rc < 0)
+		goto restore;
+
 	rc = haptics_enable_hpwr_vreg(chip, false);
 	if (rc < 0)
 		dev_err(chip->dev, "disable hpwr_vreg failed, rc=%d\n", rc);
