@@ -31,6 +31,7 @@ static struct virq_handle virqid[] = {
 int qvm_get_virq_num_id(void **virqdev, int label)
 {
 	static int i;
+	int size;
 	struct hvirq_dbl *dbl;
 
 	dbl = kzalloc(sizeof(*dbl), GFP_KERNEL);
@@ -39,7 +40,8 @@ int qvm_get_virq_num_id(void **virqdev, int label)
 
 	spin_lock_init(&dbl->dbl_lock);
 	kref_init(&dbl->refcount);
-	if (i < HAB_VIRTIRQ_MAX) {
+	size = ARRAY_SIZE(virqid);
+	if (i < size) {
 		dbl->id =  virqid[i].id;
 		dbl->virtirq_num = virqid[i].virq_num;
 		*virqdev = dbl;
@@ -120,8 +122,8 @@ static int qcom_virt_irq_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int irq;
-	struct resource *mem;
-	void __iomem *base;
+	struct resource *mem = NULL;
+	void __iomem *base = NULL;
 	int vmid = 0;
 
 	vmid = hab_driver.settings.vmid_mmid_list[0].vmid;
