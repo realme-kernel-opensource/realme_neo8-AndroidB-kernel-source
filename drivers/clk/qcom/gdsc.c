@@ -153,10 +153,8 @@ static int gdsc_toggle_logic(struct gdsc *sc, enum gdsc_status status,
 
 		if (sc->path) {
 			ret = icc_set_bw(sc->path, 0, 1);
-			if (ret < 0) {
-				regulator_disable(sc->rsupply);
-				return ret;
-			}
+			if (ret < 0)
+				goto out_err;
 		}
 	}
 
@@ -209,7 +207,7 @@ out:
 			if (ret < 0)
 				return ret;
 		}
-
+out_err:
 		if (sc->rsupply) {
 			ret = regulator_disable(sc->rsupply);
 			if (ret < 0)

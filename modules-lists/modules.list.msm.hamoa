@@ -20,6 +20,7 @@ pinctrl-x1e80100.ko
 cmd-db.ko
 qcom_rpmh.ko
 qnoc-x1p42100.ko
+qnoc-x1e80100.ko
 qnoc-qos.ko
 icc-debug.ko
 icc-bcm-voter.ko
@@ -57,3 +58,10 @@ clk-rpmh.ko
 gcc-x1p42100.ko
 tcsrcc-x1e80100.ko
 dispcc-x1e80100.ko
+regmap-spmi.ko
+qti-regmap-debugfs.ko
+qcom-spmi-pmic.ko
+nvmem_qcom-spmi-sdam.ko
+rtc-pm8xxx.ko
+pmic-pon-log.ko
+pinctrl-spmi-gpio.ko

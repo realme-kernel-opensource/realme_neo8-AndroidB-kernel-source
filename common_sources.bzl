@@ -79,6 +79,12 @@ COPY_FILES = [
     "net/wireless/wext-proc.c",
     "net/wireless/wext-sme.c",
     "net/wireless/wext-spy.c",
+    "net/sched/sch_mqprio.c",
+    "net/sched/sch_mqprio_lib.c",
+    "net/sched/sch_mqprio_lib.h",
+    "net/sched/sch_cbs.c",
+    "net/sched/sch_etf.c",
+    "net/sched/cls_flower.c",
     # cfg80211.ko files end
     "drivers/mfd/qcom-pm8008.c",
     "drivers/regulator/qcom-pm8008-regulator.c",
@@ -111,4 +117,14 @@ def define_common_upstream_files():
         ],
         outs = ["drivers/dma/qcom/gpi_fixed.c"],
         cmd = "patch --follow-symlinks -o $@ -i $(execpath :drivers/dma/qcom/gpi_fix.diff) $(execpath //common:drivers/dma/qcom/gpi.c)",
+    )
+
+    native.genrule(
+        name = "patched-drivers/net/virtio_net.c",
+        srcs = [
+            "//common:drivers/net/virtio_net.c",
+            ":drivers/net/virtio_net_fix.diff",
+        ],
+        outs = ["drivers/net/virtio_net_fixed.c"],
+        cmd = "patch --follow-symlinks -o $@ -i $(execpath :drivers/net/virtio_net_fix.diff) $(execpath //common:drivers/net/virtio_net.c)",
     )

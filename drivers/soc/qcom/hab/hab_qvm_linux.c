@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 #include "hab.h"
 #include "hab_qvm.h"
+#include "hab_virq_qvm.h"
 
 #include <linux/highmem.h>
 #include <linux/string.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
-
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -38,6 +38,13 @@ struct hab_driver_ops shmem_ops = {
 	.hab_pipe_read_dump = shmem_hab_pipe_read_dump,
 	.hab_stat_log = shmem_hab_stat_log,
 	.hab_hypervisor_unregister = shmem_hab_hypervisor_unregister,
+	.habhyp_virq_tx_register = qvm_virq_tx_register,
+	.habhyp_virq_rx_register = qvm_virq_rx_register,
+	.habhyp_virq_send = qvm_virq_send,
+	.habhyp_virq_tx_unregister = qvm_virq_tx_unregister,
+	.habhyp_virq_rx_unregister = qvm_virq_rx_unregister,
+	.habhyp_get_virq_num_id = qvm_get_virq_num_id,
+	.habhyp_init_virt_irq = qvm_init_virt_irq,
 };
 
 

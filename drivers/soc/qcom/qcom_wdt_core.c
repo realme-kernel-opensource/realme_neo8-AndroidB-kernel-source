@@ -666,6 +666,8 @@ void qcom_wdt_trigger_bite(void)
 {
 	if (!wdog_data)
 		return;
+
+	qcom_sdei_shared_reset();
 	compute_irq_count();
 	dev_err(wdog_data->dev, "Causing a QCOM Apps Watchdog bite!\n");
 	wdog_data->ops->show_wdt_status(wdog_data);
@@ -706,7 +708,6 @@ static irqreturn_t qcom_wdt_bark_handler(int irq, void *dev_id)
 	if (wdog_dd->freeze_in_progress)
 		dev_info(wdog_dd->dev, "Suspend in progress\n");
 
-	qcom_sdei_shared_reset();
 	md_dump_process();
 	qcom_wdt_trigger_bite();
 

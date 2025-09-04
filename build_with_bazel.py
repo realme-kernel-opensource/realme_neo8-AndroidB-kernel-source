@@ -62,7 +62,7 @@ class Target:
 class BazelBuilder:
     """Helper class for building with Bazel"""
 
-    def __init__(self, target_list, skip_list, out_dir, cache_dir, dry_run, user_opts):
+    def __init__(self, target_list, skip_list, out_dir, cache_dir, dry_run, target_build_variant, user_opts):
         self.workspace = os.path.realpath(
             os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
         )
@@ -83,6 +83,7 @@ class BazelBuilder:
         self.target_list = target_list
         self.skip_list = skip_list
         self.dry_run = dry_run
+        self.target_build_variant = target_build_variant
         self.user_opts = user_opts
         self.process_list = []
         if len(self.target_list) > 1 and out_dir:
@@ -334,6 +335,10 @@ class BazelBuilder:
         self.user_opts.append("--override_module=protobuf=%workspace%/build/kernel/kleaf/bzlmod/fake_modules/protobuf")
         self.user_opts.append("--override_module=rules_java=%workspace%/build/kernel/kleaf/bzlmod/fake_modules/rules_java")
 
+        if self.target_build_variant:
+          self.user_opts.extend(["--//bootable/bootloader/edk2:target_build_variant={}".format(self.target_build_variant)])
+          logging.info('The target_build_variant = %s', self.target_build_variant)
+
         if self.dry_run:
             self.user_opts.append("--nobuild")
 
@@ -427,6 +432,11 @@ def main():
         action="store_true",
         help="Compile GBL"
     )
+    parser.add_argument(
+        "--target_build_variant",
+        choices=["userdebug", "user", "eng"],
+        help="target build variant (userdebug, user, eng)",
+    )
 
     args, user_opts = parser.parse_known_args(sys.argv[1:])
 
@@ -447,6 +457,7 @@ def main():
         args.out_dir,
         args.cache_dir,
         args.dry_run,
+        args.target_build_variant,
         user_opts
     )
     try:

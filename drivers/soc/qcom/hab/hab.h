@@ -66,7 +66,13 @@ enum hab_payload_type {
 #define DEVICE_XVM3_NAME "hab_xvm3"
 #define DEVICE_VNW1_NAME "hab_vnw1"
 #define DEVICE_EXT1_NAME "hab_ext1"
+#define DEVICE_EXT2_NAME "hab_ext2"
+#define DEVICE_EXT3_NAME "hab_ext3"
 #define DEVICE_GPCE1_NAME "hab_gpce1"
+#define DEVICE_SOCCP1_NAME "hab_soccp1"
+#define DEVICE_DPRX1_NAME "hab_dprx1"
+#define DEVICE_DPRX2_NAME "hab_dprx2"
+#define DEVICE_EVA1_NAME "hab_eva1"
 
 #define HABCFG_MMID_NUM        26
 #define HAB_MMID_ALL_AREA      0
@@ -315,7 +321,7 @@ struct hvirq_dbl {
 	int virq_registered;
 	int virtirq_label;
 	int virtirq_num;
-
+	char virtirq_name[20];
 	/* QVM specific fields*/
 	int32_t irq;
 	void __iomem *base;
@@ -437,6 +443,7 @@ struct hab_driver_ops {
 	int (*habhyp_virq_tx_unregister)(struct hvirq_dbl *dbl);
 	int (*habhyp_virq_rx_unregister)(struct hvirq_dbl *dbl);
 	int (*habhyp_get_virq_num_id)(void **virqdev, int label);
+	int (*habhyp_init_virt_irq)(void);
 };
 
 struct hab_driver {
@@ -665,6 +672,7 @@ int habmem_hyp_grant(struct virtual_channel *vchan,
 		int *compressed_size,
 		int *export_id);
 
+void habmem_defer_unimp_sent(struct export_desc *export);
 int habmem_hyp_revoke(void *expdata, uint32_t count);
 int habmem_exp_release(struct export_desc_super *exp_super);
 
@@ -674,7 +682,7 @@ void habmem_imp_hyp_close(void *priv, int kernel);
 int habmem_imp_hyp_map(void *imp_ctx, struct hab_import *param,
 		struct export_desc *exp, int kernel);
 
-int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp, int kernel);
+int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp, long fcnt_idle);
 
 int habmem_imp_hyp_mmap(struct file *flip, struct vm_area_struct *vma);
 
@@ -798,6 +806,11 @@ static inline int hab_stat_log(struct physical_channel **pchans, int pchan_cnt, 
 			int dest_size)
 {
 	return hab_driver.ops->hab_stat_log(pchans, pchan_cnt, dest, dest_size);
+}
+
+static inline int habhyp_init_virt_irq(void)
+{
+	return hab_driver.ops->habhyp_init_virt_irq();
 }
 
 static inline int habhyp_virq_tx_register(struct hvirq_dbl *dbl, int dbl_label)

@@ -55,7 +55,13 @@ static struct hab_device hab_devices[] = {
 	HAB_DEVICE_CNSTR(DEVICE_XVM3_NAME, MM_XVM_3, 26),
 	HAB_DEVICE_CNSTR(DEVICE_VNW1_NAME, MM_VNW_1, 27),
 	HAB_DEVICE_CNSTR(DEVICE_EXT1_NAME, MM_EXT_1, 28),
-	HAB_DEVICE_CNSTR(DEVICE_GPCE1_NAME, MM_GPCE_1, 29),
+	HAB_DEVICE_CNSTR(DEVICE_EXT2_NAME, MM_EXT_2, 29),
+	HAB_DEVICE_CNSTR(DEVICE_EXT3_NAME, MM_EXT_3, 30),
+	HAB_DEVICE_CNSTR(DEVICE_GPCE1_NAME, MM_GPCE_1, 31),
+	HAB_DEVICE_CNSTR(DEVICE_SOCCP1_NAME, MM_SOCCP_1, 32),
+	HAB_DEVICE_CNSTR(DEVICE_DPRX1_NAME, MM_DPRX_1, 33),
+	HAB_DEVICE_CNSTR(DEVICE_DPRX2_NAME, MM_DPRX_2, 34),
+	HAB_DEVICE_CNSTR(DEVICE_EVA1_NAME, MM_EVA_1, 35),
 };
 
 struct hab_driver hab_driver = {
@@ -178,9 +184,14 @@ void hab_ctx_free_fn(struct uhab_context *ctx)
 		pr_debug("leaked imp %d vcid %X for ctx is collected total %d\n",
 			exp->export_id, exp->vcid_local,
 			ctx->import_total);
-		ret = habmm_imp_hyp_unmap(ctx->import_ctx, exp, ctx->kernel);
+		ret = habmm_imp_hyp_unmap(ctx->import_ctx, exp, 1);
 		if (exp->pchan->mem_proto == 1) {
 			if (!ret) {
+				/*
+				 * even if imp_hyp_unmap return success, it is still an
+				 * unexpected scenario: HAB client exits/crashes/gets
+				 * killed before unimport all imported memory
+				 */
 				pr_warn("unimp msg sent for exp id %u on %s\n",
 					exp->export_id, exp->pchan->name);
 				HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_UNIMPORT);
@@ -190,11 +201,15 @@ void hab_ctx_free_fn(struct uhab_context *ctx)
 				ret = physical_channel_send(exp->pchan, &header, &exp->export_id,
 						HABMM_SOCKET_SEND_FLAGS_NON_BLOCKING);
 				if (ret != 0)
-					pr_err("failed to send unimp msg %d, vcid %d, exp id %d\n",
+					pr_err("failed to send unimp msg %d, vcid %x, exp id %u\n",
 						ret, exp->vcid_local, exp->export_id);
+			} else if (ret == -EBUSY) {
+				pr_warn("exp id %u unmap fail on vcid %X, still in use. unimp msg deferred\n",
+					exp->export_id, exp->vcid_local);
+				habmem_defer_unimp_sent(exp);
 			} else
-				pr_err("exp id %d pcnt %d unmap fail on vcid %X\n",
-					exp->export_id, exp->payload_count, exp->vcid_local);
+				pr_err("unmap failed %d on vcid %X, exp id %u\n",
+					ret, exp->vcid_local, exp->export_id);
 		}
 		exp_super = container_of(exp, struct export_desc_super, exp);
 		kfree(exp_super);
@@ -1047,6 +1062,15 @@ static int hab_generate_pchan(struct local_vmid *settings, int i, int j)
 		break;
 	case MM_GPCE_START/100:
 		ret = hab_generate_pchan_group(settings, i, j, MM_GPCE_START, MM_GPCE_END);
+		break;
+	case MM_SOCCP_START/100:
+		ret = hab_generate_pchan_group(settings, i, j, MM_SOCCP_START, MM_SOCCP_END);
+		break;
+	case MM_DPRX_START/100:
+		ret = hab_generate_pchan_group(settings, i, j, MM_DPRX_START, MM_DPRX_END);
+		break;
+	case MM_EVA_START/100:
+		ret = hab_generate_pchan_group(settings, i, j, MM_EVA_START, MM_EVA_END);
 		break;
 	default:
 		pr_err("failed to find mmid %d, i %d, j %d\n",

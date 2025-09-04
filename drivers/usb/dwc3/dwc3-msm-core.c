@@ -6899,7 +6899,7 @@ static int dwc3_msm_host_ss_powerdown(struct dwc3_msm *mdwc)
 	u32 reg;
 
 	if (mdwc->is_ssphy_powerdown || mdwc->disable_host_ssphy_powerdown ||
-		mdwc->dp_state || dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
+		mdwc->dp_state != DP_NONE || dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
 		return 0;
 
 	reg = dwc3_msm_read_reg(mdwc->base, EXTRA_INP_REG);

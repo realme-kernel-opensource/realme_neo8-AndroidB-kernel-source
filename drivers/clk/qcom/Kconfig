@@ -575,4 +575,13 @@ config CLK_X1P42100_GPUCC
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config SC_CAMCC_X1P42100
+	tristate "X1P42100 Camera Clock Controller"
+	depends on SC_GCC_X1P42100
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  X1P42100 devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 endif

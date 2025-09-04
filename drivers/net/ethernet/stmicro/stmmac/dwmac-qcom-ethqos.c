@@ -1103,7 +1103,6 @@ static void qcom_ethqos_exit(struct platform_device *pdev, void *prv)
 		dev_pm_domain_detach_list(ethqos->pd_list);
 		dev_dbg(&ethqos->pdev->dev, "Detaching all Power and Perf domains");
 	} else {
-		qcom_ethqos_domain_transition_d0d3(prv, false);
 		dev_dbg(&ethqos->pdev->dev, "Turning off Power and Perf domains");
 	}
 }

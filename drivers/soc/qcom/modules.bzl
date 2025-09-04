@@ -398,6 +398,19 @@ def register_modules(registry):
     )
 
     registry.register(
+        name = "drivers/soc/qcom/hwkm",
+        out = "hwkm.ko",
+        config = "CONFIG_QTI_HW_KEY_MANAGER_V1",
+        srcs = [
+            # do not sort
+            "drivers/soc/qcom/hwkm.c",
+            "drivers/soc/qcom/hwkm_v1.h",
+            "drivers/soc/qcom/hwkm_serialize.h",
+            "drivers/soc/qcom/hwkmregs.h",
+        ],
+    )
+
+    registry.register(
         name = "drivers/soc/qcom/llcc_perfmon",
         out = "llcc_perfmon.ko",
         config = "CONFIG_QCOM_LLCC_PERFMON",
@@ -920,6 +933,7 @@ def register_modules(registry):
         srcs = [
             # do not sort
             "drivers/soc/qcom/ice.c",
+            "drivers/soc/qcom/hwkm_v1.h",
         ],
         deps = [
             # do not sort
@@ -928,6 +942,7 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_msgq",
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
+            "drivers/soc/qcom/hwkm",
         ],
     )
 

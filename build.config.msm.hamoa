@@ -5,7 +5,7 @@
 
 ################################################################################
 ## Variant setup
-MSM_ARCH=x1p42100
+MSM_ARCH=hamoa
 VARIANTS=(consolidate perf)
 [ -z "${VARIANT}" ] && VARIANT=consolidate
 

@@ -102,6 +102,8 @@ lahaina_perf_config = {
     "CONFIG_MHI_UCI": "m",
     "CONFIG_MINIDUMP_MAX_ENTRIES": "200",
     "CONFIG_MMC_CQHCI": "m",
+    "CONFIG_MMC_CRYPTO": "y",
+    "CONFIG_MMC_CRYPTO_QTI": "m",
     "CONFIG_MMC_SDHCI_MSM": "m",
     "CONFIG_MODULE_SIG_ALL": "n",
     "CONFIG_MSM_BOOT_STATS": "m",
@@ -338,4 +340,5 @@ lahaina_perf_config = {
     "CONFIG_WILC1000_SPI": "n",
     "CONFIG_ZRAM": "m",
     "CONFIG_ZSMALLOC": "m",
+    "CONFIG_ARM64_AMU_EXTN": "n",
 }

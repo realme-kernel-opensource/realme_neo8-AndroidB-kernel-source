@@ -5,6 +5,7 @@
  * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  * Copyright (c) 2019, Google LLC
  * Copyright (c) 2023, Linaro Limited
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/bitfield.h>
@@ -14,6 +15,9 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1)
+#include "hwkm_v1.h"
+#endif
 
 #include <linux/firmware/qcom/qcom_scm.h>
 
@@ -336,6 +340,19 @@ static int qcom_ice_program_wrapped_key(struct qcom_ice *ice,
 
 	hwkm_slot = translate_hwkm_slot(ice, slot);
 
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1)
+	err = qcom_hwkm_program_key(ice->base, key, hwkm_slot,
+				data_unit_size, QCOM_SCM_ICE_CIPHER_AES_256_XTS);
+	if (err) {
+		pr_err("%s: program key failed with error %d\n", __func__, err);
+		err = qcom_hwkm_invalidate_key(slot);
+		if (err)
+			pr_err("%s: invalidate key failed with error %d\n", __func__, err);
+	}
+
+	return err;
+#endif
+
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.dusize = data_unit_size;
 	cfg.capidx = QCOM_SCM_ICE_CIPHER_AES_256_XTS;
@@ -448,6 +465,10 @@ int qcom_ice_evict_key(struct qcom_ice *ice, int slot)
 {
 	int hwkm_slot = slot;
 
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1)
+	return qcom_hwkm_invalidate_key(slot);
+#endif
+
 	if (ice->use_hwkm) {
 		hwkm_slot = translate_hwkm_slot(ice, slot);
 	/*
@@ -476,6 +497,11 @@ int qcom_ice_derive_sw_secret(struct qcom_ice *ice, const u8 wkey[],
 {
 	int err = 0;
 	struct qtee_shm shm_key, shm_secret;
+
+#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1)
+	return qcom_hwkm_derive_raw_secret_platform(wkey,
+				wkey_size, sw_secret, BLK_CRYPTO_SW_SECRET_SIZE);
+#endif
 
 	/*
 	 * The following logic for shmbridge will be taken care in SCM driver

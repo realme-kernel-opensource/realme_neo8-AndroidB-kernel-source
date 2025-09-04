@@ -132,12 +132,14 @@ DEFINE_DEBUGFS_ATTRIBUTE(gdsc_genpd_debug_enable_fops, gdsc_genpd_enable_get,
 static int gdsc_genpd_debug_create_one(struct gdsc_debug *gdsc_debug,
 						struct dentry *pdentry)
 {
-	struct gdsc *sc = gdsc_debug->sc;
+	struct gdsc *sc;
 	struct dentry *root;
 	struct dentry *tmp;
 
-	if (!gdsc_debug || !pdentry)
+	if (!gdsc_debug || !gdsc_debug->sc || !pdentry)
 		return -EINVAL;
+
+	sc = gdsc_debug->sc;
 
 	root = debugfs_lookup(sc->pd.name, pdentry);
 	if (IS_ERR_OR_NULL(root)) {
