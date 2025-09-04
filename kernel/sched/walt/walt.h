@@ -1751,4 +1751,5 @@ extern u64 oscillate_ts_ns;
  * to a simple bit shift operation, ie., divide by 1024 or shift right by 10.
  */
 #define GIANT_UTIL_THRESH_PCT 700
+extern u64 walt_rotation_stop_hyst_start_ts;
 #endif /* _WALT_H */
