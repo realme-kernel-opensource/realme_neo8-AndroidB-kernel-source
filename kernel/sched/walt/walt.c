@@ -4230,7 +4230,7 @@ static void walt_update_irqload(struct rq *rq)
 		wrq->high_irqload = false;
 }
 
-static u64 walt_rotation_stop_hyst_start_ts;
+u64 walt_rotation_stop_hyst_start_ts;
 /**
  * __walt_irq_work_locked() - common function to process work
  * @is_migration: if true, performing migration work, else rollover
