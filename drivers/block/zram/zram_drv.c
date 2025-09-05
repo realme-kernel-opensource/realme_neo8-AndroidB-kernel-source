@@ -1751,6 +1751,14 @@ static inline int _zram_req_queue(struct qpace_control *qpace_ctl,
 	 */
 	spin_lock_irq(&qpace_ctl->work_available_lock);
 	if (qpace_ctl->queue_size == DESCRIPTORS_PER_RING - 1) {
+		/*
+		 * This case occurs when the timer has just been triggered,
+		 * and queue_non_empty hasn’t yet been set to true by any other
+		 * queue operation.
+		 * Ensure that queue_non_empty is set to true so that complete()
+		 * will be invoked.
+		 */
+		WRITE_ONCE(qpace_ctl->queue_non_empty, true);
 		_signal_work_available(qpace_ctl);
 	} else if (!READ_ONCE(qpace_ctl->queue_non_empty)) {
 		WRITE_ONCE(qpace_ctl->queue_non_empty, true);
