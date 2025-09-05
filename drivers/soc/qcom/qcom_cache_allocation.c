@@ -902,8 +902,28 @@ static struct cpu_gpu_bw_config canoe_config[] = {
 	},
 };
 
+static struct cpu_gpu_bw_config alor_config[] = {
+	[0] = {
+		.cluster_id = 0,
+		.cpu_boost_thresh = 1500000,
+		.cpu_restore_thresh = 1000000,
+		.cpu_instant_thresh = { 115200, 1996800 },
+		.gpu_instant_thresh = 443,
+		.bw_mon_ratio_thresh = { 10, 50 },
+	},
+	[1] = {
+		.cluster_id = 6,
+		.cpu_boost_thresh = 1500000,
+		.cpu_restore_thresh = 1400000,
+		.cpu_instant_thresh = { 1689600, 3072000 },
+		.gpu_instant_thresh = 607,
+		.bw_mon_ratio_thresh = { 150, 1000 },
+	},
+};
+
 static const struct of_device_id cache_allocation_table[] = {
 	{ .compatible = "qcom,cache-allocation-canoe", .data = &canoe_config },
+	{ .compatible = "qcom,cache-allocation-alor", .data = &alor_config },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, cache_allocation_table);
