@@ -620,7 +620,7 @@ static ssize_t store_subsampling_enabled(struct kobject *kobj,
 
 	mutex_lock(&memlat_lock);
 	if (val == memlat_data->subsampling_enabled)
-		return count;
+		goto out;
 
 	ret = ops->set_param(memlat_data->ph, &val, MEMLAT_ALGO_STR,
 				MEMLAT_SET_SUBSAMPLING_ENABLED, sizeof(val));
@@ -630,6 +630,7 @@ static ssize_t store_subsampling_enabled(struct kobject *kobj,
 		return ret;
 	}
 	memlat_data->subsampling_enabled = val;
+out:
 	mutex_unlock(&memlat_lock);
 	return count;
 }
