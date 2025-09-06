@@ -92,6 +92,7 @@ enum freq_caps {
 #define SOC_ENABLE_PIPELINE_SWAPPING_BIT		BIT(9)
 #define SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT		BIT(10)
 #define SOC_ENABLE_SINGLE_THREAD_PIPELINE_PINNING	BIT(11)
+#define SOC_ENABLE_LIMIT_PRIME_USAGE			BIT(12)
 
 extern int soc_sched_lib_name_capacity;
 
