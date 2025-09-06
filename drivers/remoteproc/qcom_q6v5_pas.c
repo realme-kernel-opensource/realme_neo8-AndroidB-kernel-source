@@ -66,6 +66,7 @@
 struct q6_subdev {
 	const char *firmware_name;
 	int pas_id;
+	char *ssr_name;
 	bool is_dtb;
 	const struct firmware *firmware;
 	phys_addr_t mem_phys;
@@ -73,6 +74,8 @@ struct q6_subdev {
 	void *mem_region;
 	size_t mem_size;
 	struct qcom_scm_pas_metadata pas_metadata;
+	struct device *dev;
+	struct list_head dump_segments;
 };
 
 struct adsp_data {
@@ -619,6 +622,24 @@ static void adsp_unassign_memory_region(struct qcom_adsp *adsp)
 	}
 }
 
+static void subdev_da_to_va(struct qcom_adsp *adsp, struct q6_subdev *subdev)
+{
+	struct qcom_dump_segment *entry;
+	int offset;
+
+	list_for_each_entry(entry, &subdev->dump_segments, node) {
+		offset = entry->da - subdev->mem_phys;
+		if (offset < 0 || offset + entry->size > subdev->mem_size) {
+			dev_err(adsp->dev,
+				"invalid subdev %s segment %pad with offset %d and size %zu)\n",
+				subdev->firmware_name, &entry->da, offset, entry->size);
+			coredump_cleanup(&subdev->dump_segments);
+			return;
+		}
+		entry->va = subdev->mem_region + offset;
+	}
+}
+
 static int adsp_start(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
@@ -685,6 +706,19 @@ static int adsp_start(struct rproc *rproc)
 				rproc->name, ret);
 
 		auth_reset_ret = true;
+	}
+
+	/* prepare subdev coredump segment table */
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++) {
+			coredump_cleanup(&adsp->q6_subdev[i].dump_segments);
+			if (register_dump_segments(&adsp->q6_subdev[i].dump_segments,
+						adsp->q6_subdev[i].firmware) < 0) {
+				coredump_cleanup(&adsp->q6_subdev[i].dump_segments);
+				continue;
+			}
+			subdev_da_to_va(adsp, &adsp->q6_subdev[i]);
+		}
 	}
 
 	if (adsp->q6_subdev) {
@@ -1194,6 +1228,17 @@ static int adsp_stop(struct rproc *rproc)
 		ret = qcom_smem_bust_hwspin_lock_by_host(adsp->smem_host_id);
 
 	add_mpss_dsm_mem_ssr_dump(adsp);
+
+	/* collect subdev coredump */
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++) {
+			ret = qcom_elf_dump(&adsp->q6_subdev[i].dump_segments,
+				adsp->q6_subdev[i].dev, rproc->elf_class);
+			if (ret)
+				dev_err(adsp->dev, "Failed to collect ramdump for device %s\n",
+					adsp->q6_subdev[i].firmware_name);
+		}
+	}
 
 	adsp_unassign_memory_region(adsp);
 
@@ -1712,7 +1757,8 @@ static int adsp_probe(struct platform_device *pdev)
 	const char *fw_name, *dtb_fw_name = NULL;
 	const struct rproc_ops *ops = &adsp_ops;
 	char md_dev_name[32];
-	int ret;
+	char q6_subdev_name[32];
+	int ret, i;
 
 	desc = of_device_get_match_data(&pdev->dev);
 	if (!desc)
@@ -1859,6 +1905,23 @@ static int adsp_probe(struct platform_device *pdev)
 	if (!adsp->minidump_dev)
 		dev_err(&pdev->dev, "Unable to create %s minidump device.\n", md_dev_name);
 
+	/* create ramdump device for q6 subdev */
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++) {
+			snprintf(q6_subdev_name, ARRAY_SIZE(q6_subdev_name), "%s_%s",
+				pdev->dev.of_node->name, adsp->q6_subdev[i].ssr_name);
+			adsp->q6_subdev[i].dev = qcom_create_ramdump_device(q6_subdev_name, NULL);
+			if (!adsp->q6_subdev[i].dev) {
+				dev_err(&pdev->dev,
+					"Unable to create %s q6 subdev ramdump device.\n",
+					adsp->q6_subdev[i].ssr_name);
+				qcom_destroy_ramdump_device(adsp->q6_subdev[i].dev);
+				continue;
+			}
+			INIT_LIST_HEAD(&adsp->q6_subdev[i].dump_segments);
+		}
+	}
+
 	qcom_add_ssr_subdev(rproc, &adsp->ssr_subdev, desc->ssr_name);
 
 	/*
@@ -1920,11 +1983,16 @@ free_rproc:
 static void adsp_remove(struct platform_device *pdev)
 {
 	struct qcom_adsp *adsp = platform_get_drvdata(pdev);
+	int i;
 
 	rproc_del(adsp->rproc);
 	qcom_q6v5_deinit(&adsp->q6v5);
 	if (adsp->minidump_dev)
 		qcom_destroy_ramdump_device(adsp->minidump_dev);
+	if (adsp->q6_subdev) {
+		for (i = 0; i < adsp->q6_subdev_count; i++)
+			qcom_destroy_ramdump_device(adsp->q6_subdev[i].dev);
+	}
 	device_remove_file(adsp->dev, &dev_attr_txn_id);
 	adsp_unassign_memory_region(adsp);
 	qcom_remove_glink_subdev(adsp->rproc, &adsp->glink_subdev);
@@ -2617,8 +2685,8 @@ static const struct adsp_data pineapple_mpss_resource = {
 };
 
 static struct q6_subdev vienna_adsp_subdev[] = {
-	{ "lpai_wm.mdt", 0x4F},
-	{ "lpai_am.mdt", 0x4E},
+	{ "lpai_wm.mdt", 0x4F, "lpai_wm"},
+	{ "lpai_am.mdt", 0x4E, "lpai_am"},
 };
 
 static const struct adsp_data vienna_adsp_resource = {
