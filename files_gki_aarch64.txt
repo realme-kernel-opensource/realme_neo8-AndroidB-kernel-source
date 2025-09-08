@@ -1739,6 +1739,7 @@ drivers/spmi/spmi.c
 drivers/staging/android/ashmem.h
 drivers/staging/android/ashmem_range.rs
 drivers/staging/android/ashmem_rust.rs
+drivers/staging/android/ashmem_rust_exports.c
 drivers/staging/android/ashmem_shrinker.rs
 drivers/staging/android/ashmem_toggle.rs
 drivers/staging/android/shmem.rs
@@ -3042,6 +3043,7 @@ include/linux/device-mapper.h
 include/linux/device.h
 include/linux/device/bus.h
 include/linux/device/class.h
+include/linux/device/devres.h
 include/linux/device/driver.h
 include/linux/device_cgroup.h
 include/linux/devpts_fs.h
@@ -4657,6 +4659,8 @@ include/trace/hooks/timer.h
 include/trace/hooks/topology.h
 include/trace/hooks/traps.h
 include/trace/hooks/ufshcd.h
+include/trace/hooks/usb.h
+include/trace/hooks/user.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/vmscan.h
 include/trace/hooks/wqlockup.h
@@ -5810,6 +5814,7 @@ lib/lz4/lz4_decompress.c
 lib/lz4/lz4defs.h
 lib/lz4/lz4hc_compress.c
 lib/lzo/lzo1x_compress.c
+lib/lzo/lzo1x_compress_safe.c
 lib/lzo/lzo1x_decompress_safe.c
 lib/lzo/lzodefs.h
 lib/maple_tree.c
@@ -6786,6 +6791,7 @@ rust/helpers/mm.c
 rust/helpers/mman.c
 rust/helpers/mutex.c
 rust/helpers/page.c
+rust/helpers/pid_namespace.c
 rust/helpers/poll.c
 rust/helpers/rbtree.c
 rust/helpers/refcount.c
@@ -6835,6 +6841,7 @@ rust/kernel/mm/virt.rs
 rust/kernel/net.rs
 rust/kernel/page.rs
 rust/kernel/page_size_compat.rs
+rust/kernel/pid_namespace.rs
 rust/kernel/prelude.rs
 rust/kernel/print.rs
 rust/kernel/rbtree.rs
