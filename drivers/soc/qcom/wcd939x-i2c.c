@@ -1636,10 +1636,8 @@ static int wcd_usbss_sdam_handle_events_locked(int req_state)
 	return rc;
 }
 
-
-static irqreturn_t wcd_usbss_sdam_notifier_handler(int irq, void *data)
+static void wcd_usbss_sdam_handle_events_update(struct wcd_usbss_ctxt *priv)
 {
-	struct wcd_usbss_ctxt *priv = data;
 	u8 *buf;
 	size_t len = 0;
 	int rc = 0;
@@ -1648,16 +1646,17 @@ static irqreturn_t wcd_usbss_sdam_notifier_handler(int irq, void *data)
 	if (WARN_ON(wcd_usbss_ctxt_ == NULL))
 		goto exit;
 
+	mutex_lock(&wcd_usbss_ctxt_->switch_update_lock);
 	buf = nvmem_cell_read(priv->nvmem_cell, &len);
 	if (IS_ERR(buf)) {
 		rc = PTR_ERR(buf);
 		dev_err(priv->dev, "nvmem cell read failed, rc:%d\n", rc);
-		return rc;
+		mutex_unlock(&wcd_usbss_ctxt_->switch_update_lock);
+		goto exit;
 	}
 	buf[0] &= 0x7;
 	dev_dbg(priv->dev, "sdam notifier request:%d\n", buf[0]);
 
-	mutex_lock(&wcd_usbss_ctxt_->switch_update_lock);
 	if (buf[0] == priv->wcd_standby_status) {
 		dev_info(priv->dev, "%s: wcd already in %s mode:\n", __func__,
 				status_to_str(priv->wcd_standby_status));
@@ -1697,6 +1696,14 @@ unlock_mutex:
 	mutex_unlock(&wcd_usbss_ctxt_->switch_update_lock);
 	kfree(buf);
 exit:
+	return;
+}
+
+static irqreturn_t wcd_usbss_sdam_notifier_handler(int irq, void *data)
+{
+	struct wcd_usbss_ctxt *priv = data;
+
+	wcd_usbss_sdam_handle_events_update(priv);
 	return IRQ_HANDLED;
 }
 
@@ -1849,10 +1856,13 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 	i2c_set_clientdata(i2c, priv);
 
 	rc = wcd_usbss_sdam_registration(priv);
-	if (rc == 0)
+	if (rc == 0) {
 		priv->standby_enable = true;
-	else
-		dev_info(priv->dev, "wcd standby feature not enabled\n");
+		wcd_usbss_sdam_handle_events_update(priv);
+		dev_dbg(priv->dev, "call the sdam irq callback on probe()\n");
+	} else {
+		dev_dbg(priv->dev, "wcd standby feature not enabled\n");
+	}
 
 	mux_desc.drvdata = priv;
 	mux_desc.fwnode = dev_fwnode(priv->dev);
