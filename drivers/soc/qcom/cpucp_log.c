@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/kernel.h>
@@ -428,6 +428,7 @@ static void cpucp_log_rx(struct mbox_client *client, void *msg)
 	u64 *data = (u64 *)msg;
 	u32 buf_start;
 	u32 cap_size;
+	u32 buf_offset = 0;
 	int i;
 
 	buf_node = get_free_buffer(info);
@@ -467,17 +468,21 @@ static void cpucp_log_rx(struct mbox_client *client, void *msg)
 		*data >>= 32;
 		buf_start = FIELD_GET(GENMASK(23, 0), *data) << 8;
 		cap_size = (FIELD_GET(GENMASK(31, 24), *data) + 1) << 8;
+
 		for (i = 0; i < info->num_bufs; i++)  {
-			if (buf_start == info->rmem[i].phys_addr)
-				break;
+			if (buf_start >= info->rmem[i].phys_addr) {
+				buf_offset = buf_start - info->rmem[i].phys_addr;
+				/* only use if it starts within the buffer */
+				if (buf_offset < info->rmem[i].size)
+					break;
+			}
 		}
 		if (i >= info->num_bufs) {
-			dev_err(dev, "pdp_log error: couldn't match buf_start addr\n");
+			dev_err(dev, "couldn't match buf_start addr: 0x%08x\n", buf_start);
 			return;
 		}
-
-		src = info->rmem[i].start;
-		rmem_size = min(cap_size, info->rmem->size);
+		src = info->rmem[i].start + buf_offset;
+		rmem_size = min(cap_size, info->rmem[i].size - buf_offset);
 		break;
 	default:
 		return;
