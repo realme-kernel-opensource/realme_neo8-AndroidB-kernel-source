@@ -173,7 +173,7 @@ hamoa_perf_config = {
     "CONFIG_QTI_PMIC_GLINK": "m",
     "CONFIG_QTI_PMIC_GLINK_DEBUG": "m",
     "CONFIG_QTI_PMIC_PON_LOG": "m",
-    "CONFIG_QTI_QMI_COOLING_DEVICE": "n",
+    "CONFIG_QTI_QMI_COOLING_DEVICE": "m",
     "CONFIG_QTI_SYS_PM_VX": "m",
     "CONFIG_REBOOT_MODE": "m",
     "CONFIG_REGMAP_QTI_DEBUGFS": "m",
