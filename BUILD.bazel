@@ -8,6 +8,7 @@ load(":kleaf-scripts/android_build.bzl", "define_common_android_rules")
 load(":kleaf-scripts/ddk_uapi_headers_cc_library.bzl", "ddk_uapi_headers_cc_library")
 load(":kleaf-scripts/dtbs.bzl", "define_qcom_dtb_setup")
 load(":kleaf-scripts/generic_qtvm.bzl", "define_qtvm")
+load(":kleaf-scripts/le_build.bzl", "define_common_le_rules")
 load(":kleaf-scripts/targets/autogvm.bzl", "define_autogvm")
 load(":kleaf-scripts/targets/autogvmlv.bzl", "define_autogvmlv")
 load(
@@ -33,6 +34,8 @@ exports_files(["android/abi_gki_aarch64_qcom"])
 define_top_level_rules()
 
 define_common_android_rules()
+
+define_common_le_rules()
 
 define_common_upstream_files()
 
