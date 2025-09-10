@@ -1142,7 +1142,8 @@ static bool adjustment_possible(const struct cluster_data *cluster,
 						cluster_paused_cpus(cluster)));
 }
 
-static bool eval_need(struct cluster_data *cluster)
+#define GIANT_TASK_OFFLINE_DELAY_NS 300000000
+static bool eval_need(struct cluster_data *cluster, u64 window_start)
 {
 	unsigned long flags;
 	unsigned int need_cpus = 0, last_need;
@@ -1156,7 +1157,10 @@ static bool eval_need(struct cluster_data *cluster)
 
 	spin_lock_irqsave(&state_lock, flags);
 
-	if (cluster->boost || !cluster->enable)
+	if (cluster->boost || !cluster->enable ||
+		(walt_rotation_stop_hyst_start_ts &&
+		 (window_start - walt_rotation_stop_hyst_start_ts <
+		  GIANT_TASK_OFFLINE_DELAY_NS)))
 		need_cpus = cluster->max_cpus;
 	else
 		need_cpus = apply_task_need(cluster);
@@ -1201,7 +1205,9 @@ unlock:
 
 static void sysfs_param_changed(struct cluster_data *cluster)
 {
-	if (eval_need(cluster))
+	u64 now = walt_sched_clock();
+
+	if (eval_need(cluster, now))
 		wake_up_core_ctl_thread();
 }
 
@@ -1500,7 +1506,7 @@ void core_ctl_check(u64 window_start, u32 wakeup_ctr_sum)
 	update_running_avg(window_start, wakeup_ctr_sum);
 
 	for_each_cluster(cluster, index)
-		wakeup |= eval_need(cluster);
+		wakeup |= eval_need(cluster, window_start);
 
 	if (wakeup)
 		do_core_ctl();

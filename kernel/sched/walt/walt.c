@@ -389,9 +389,9 @@ fixup_nr_giant(struct rq *rq, struct task_struct *p, struct walt_sched_stats *st
 	int cap;
 
 	if (num_sched_clusters >= 2)
-		cap = capacity_orig_of(cpumask_first(&cpu_array[0][num_sched_clusters - 2]));
+		cap = arch_scale_cpu_capacity(cpumask_first(&cpu_array[0][num_sched_clusters - 2]));
 	else
-		cap = capacity_orig_of(cpumask_first(&cpu_array[0][num_sched_clusters - 1]));
+		cap = arch_scale_cpu_capacity(cpumask_first(&cpu_array[0][num_sched_clusters - 1]));
 
 	if (updated_demand_scaled > ((GIANT_UTIL_THRESH_PCT * cap) >> SCHED_CAPACITY_SHIFT)) {
 		if (!is_prev_giant_task) {
@@ -4236,7 +4236,7 @@ static void walt_update_irqload(struct rq *rq)
 		wrq->high_irqload = false;
 }
 
-static u64 walt_rotation_stop_hyst_start_ts;
+u64 walt_rotation_stop_hyst_start_ts;
 /**
  * __walt_irq_work_locked() - common function to process work
  * @is_migration: if true, performing migration work, else rollover
