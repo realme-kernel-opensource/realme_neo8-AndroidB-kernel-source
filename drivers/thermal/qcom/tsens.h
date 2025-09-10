@@ -131,6 +131,8 @@ struct tsens_ops {
 	void (*disable)(struct tsens_priv *priv);
 	int (*suspend)(struct tsens_priv *priv);
 	int (*resume)(struct tsens_priv *priv);
+	int (*freeze)(struct tsens_priv *priv);
+	int (*restore)(struct tsens_priv *priv);
 };
 
 #define REG_FIELD_FOR_EACH_SENSOR11(_name, _offset, _startbit, _stopbit) \
@@ -652,7 +654,10 @@ struct tsens_priv {
 	struct tsens_features		*feat;
 	const struct reg_field		*fields;
 	const struct tsens_ops		*ops;
-
+	/* add to save irq number to re-use it at runtime */
+	int				uplow_irq;
+	int				crit_irq;
+	int                             comb_irq;
 	struct dentry			*debug_root;
 	struct dentry			*debug;
 	void				*ipc_log;
@@ -712,7 +717,9 @@ int tsens_resume_common(struct tsens_priv *priv);
 #else
 #define tsens_resume_common            NULL
 #endif
-
+int tsens_v2_tsens_suspend(struct tsens_priv *priv);
+int tsens_v2_tsens_freeze(struct tsens_priv *priv);
+int tsens_v2_tsens_restore(struct tsens_priv *priv);
 /* TSENS target */
 extern struct tsens_plat_data data_8960;
 
