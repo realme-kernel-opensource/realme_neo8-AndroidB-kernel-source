@@ -70,7 +70,8 @@ static u64 walt_load_reported_window;
 
 struct irq_work walt_cpufreq_irq_work;
 struct irq_work walt_migration_irq_work;
-unsigned int walt_rotation_enabled;
+bool walt_rotation_enabled;
+bool plenty_giant_tasks;
 
 unsigned int __read_mostly sched_ravg_window = 20000000;
 int min_possible_cluster_id;
@@ -380,6 +381,33 @@ fixup_cumulative_runnable_avg(struct rq *rq,
 	stats->pred_demands_sum_scaled = (u64)pred_demands_sum_scaled;
 }
 
+static inline void
+fixup_nr_giant(struct rq *rq, struct task_struct *p, struct walt_sched_stats *stats,
+		u16 updated_demand_scaled)
+{
+	bool is_prev_giant_task = walt_flag_test(p, WALT_GIANT_BIT);
+	int cap;
+
+	if (num_sched_clusters >= 2)
+		cap = capacity_orig_of(cpumask_first(&cpu_array[0][num_sched_clusters - 2]));
+	else
+		cap = capacity_orig_of(cpumask_first(&cpu_array[0][num_sched_clusters - 1]));
+
+	if (updated_demand_scaled > ((GIANT_UTIL_THRESH_PCT * cap) >> SCHED_CAPACITY_SHIFT)) {
+		if (!is_prev_giant_task) {
+			walt_flag_set(p, WALT_GIANT_BIT, 1);
+			stats->nr_giant_tasks++;
+		}
+	} else {
+		if (is_prev_giant_task) {
+			walt_flag_set(p, WALT_GIANT_BIT, 0);
+			stats->nr_giant_tasks--;
+			if (stats->nr_giant_tasks < 0)
+				stats->nr_giant_tasks = 0;
+		}
+	}
+}
+
 static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 				   u16 updated_demand_scaled,
 				   u16 updated_pred_demand_scaled)
@@ -393,6 +421,9 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 
 	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats, task_load_delta,
 				      pred_demand_delta);
+
+	if (walt_fair_task(p))
+		fixup_nr_giant(rq, p, &wrq->walt_stats, updated_demand_scaled);
 }
 
 static void rollover_cpu_window(struct rq *rq, bool full_window);
@@ -568,6 +599,13 @@ int walt_trailblazer_tasks(int cpu)
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu);
 
 	return wrq->walt_stats.nr_trailblazer_tasks;
+}
+
+int walt_giant_tasks(int cpu)
+{
+	struct walt_rq *wrq = &per_cpu(walt_rq, cpu);
+
+	return wrq->walt_stats.nr_giant_tasks;
 }
 
 bool trailblazer_on_prime(void)
@@ -3013,6 +3051,7 @@ static void init_new_task_load(struct task_struct *p)
 
 	walt_flag_set(p, WALT_INIT_BIT, 1);
 	walt_flag_set(p, WALT_TRAILBLAZER_BIT, 0);
+	walt_flag_set(p, WALT_GIANT_BIT, 0);
 }
 
 int remove_heavy(struct walt_task_struct *wts);
@@ -4197,6 +4236,7 @@ static void walt_update_irqload(struct rq *rq)
 		wrq->high_irqload = false;
 }
 
+static u64 walt_rotation_stop_hyst_start_ts;
 /**
  * __walt_irq_work_locked() - common function to process work
  * @is_migration: if true, performing migration work, else rollover
@@ -4339,10 +4379,15 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 	 * not rolled over properly as mark_start > window_start.
 	 */
 	if (!is_migration) {
+		u64 temp_sched_ravg_window;
 		spin_lock_irqsave(&sched_ravg_window_lock, flags);
+		if (plenty_giant_tasks || walt_rotation_stop_hyst_start_ts)
+			temp_sched_ravg_window = mult_frac(2, NSEC_PER_SEC, HZ);
+		else
+			temp_sched_ravg_window = new_sched_ravg_window;
 		wrq = &per_cpu(walt_rq, cpu_of(this_rq()));
-		if ((sched_ravg_window != new_sched_ravg_window) &&
-		    (wc < wrq->window_start + new_sched_ravg_window)) {
+		if ((sched_ravg_window != temp_sched_ravg_window) &&
+		    (wc < wrq->window_start + temp_sched_ravg_window)) {
 			struct walt_rq *other_wrq;
 
 			for_each_sched_cluster(cluster) {
@@ -4357,9 +4402,9 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 			}
 			sched_ravg_window_change_time = walt_sched_clock();
 			trace_sched_ravg_window_change(sched_ravg_window,
-					new_sched_ravg_window,
+					temp_sched_ravg_window,
 					sched_ravg_window_change_time);
-			sched_ravg_window = new_sched_ravg_window;
+			sched_ravg_window = temp_sched_ravg_window;
 			walt_tunables_fixup();
 		}
 out:
@@ -4684,28 +4729,58 @@ static void walt_irq_work(struct irq_work *irq_work)
 	}
 }
 
-void walt_rotation_checkpoint(int nr_big)
+#define HIGH_PERF_CAP_HYST_SEC 10 /*10 seconds of suppression */
+void walt_rotation_checkpoint(u64 window_start, int nr_giant)
 {
 	int i;
-	bool prev = walt_rotation_enabled;
+	static u64 high_perf_state_hyst_start_ts;
+	bool prev = plenty_giant_tasks;
 
 	if (!hmp_capable())
 		return;
 
-	if (!sysctl_sched_walt_rotate_big_tasks || sched_boost_type != NO_BOOST) {
+	plenty_giant_tasks = nr_giant >= num_possible_cpus();
+
+	if (!sysctl_sched_walt_rotate_big_tasks || sched_boost_type != NO_BOOST)
 		walt_rotation_enabled = 0;
-		return;
+	else
+		walt_rotation_enabled = plenty_giant_tasks;
+
+	if (plenty_giant_tasks && !prev) {
+		walt_rotation_stop_hyst_start_ts = 0;
+	} else if (!plenty_giant_tasks && prev) {
+		walt_rotation_stop_hyst_start_ts = window_start;
+	} else {
+		if (walt_rotation_stop_hyst_start_ts &&
+				(window_start - walt_rotation_stop_hyst_start_ts >=
+					HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC))
+			walt_rotation_stop_hyst_start_ts = 0;
 	}
 
-	walt_rotation_enabled = nr_big >= num_possible_cpus();
-
-	for (i = 0; i < num_sched_clusters; i++) {
-		if (walt_rotation_enabled && !prev)
-			freq_cap[HIGH_PERF_CAP][i] = high_perf_cluster_freq_cap[i];
-		else if (!walt_rotation_enabled && prev)
+	if (sched_boost_type != NO_BOOST) {
+		for (i = 0; i < num_sched_clusters; i++)
 			freq_cap[HIGH_PERF_CAP][i] = FREQ_QOS_MAX_DEFAULT_VALUE;
+		high_perf_state_hyst_start_ts = 0;
+		goto adjust_smart_freq_capacities;
 	}
 
+	if (plenty_giant_tasks && !prev) {
+		for (i = 0; i < num_sched_clusters; i++)
+			freq_cap[HIGH_PERF_CAP][i] = high_perf_cluster_freq_cap[i];
+		high_perf_state_hyst_start_ts = 0;
+	} else if (!plenty_giant_tasks && prev) {
+		high_perf_state_hyst_start_ts = window_start;
+	} else {
+		if (high_perf_state_hyst_start_ts &&
+				(window_start - high_perf_state_hyst_start_ts
+					>= HIGH_PERF_CAP_HYST_SEC * (u64)NSEC_PER_SEC)) {
+			for (i = 0; i < num_sched_clusters; i++)
+				freq_cap[HIGH_PERF_CAP][i] = FREQ_QOS_MAX_DEFAULT_VALUE;
+			high_perf_state_hyst_start_ts = 0;
+		}
+	}
+
+adjust_smart_freq_capacities:
 	update_smart_freq_capacities();
 }
 
@@ -4802,6 +4877,7 @@ static void walt_sched_init_rq(struct rq *rq)
 	wrq->window_start = 0;
 	wrq->walt_stats.nr_big_tasks = 0;
 	wrq->walt_stats.nr_trailblazer_tasks = 0;
+	wrq->walt_stats.nr_giant_tasks = 0;
 	wrq->walt_flags = 0;
 	wrq->avg_irqload = 0;
 	wrq->prev_irq_time = 0;

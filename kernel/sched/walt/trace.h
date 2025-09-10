@@ -447,7 +447,7 @@ TRACE_EVENT(sched_load_to_gov,
 
 	TP_PROTO(struct rq *rq, u64 aggr_grp_load, u32 tt_load,
 		int freq_aggr, u64 nbl, u64 load, int policy,
-		int big_task_rotation,
+		bool big_task_rotation,
 		unsigned int user_hint,
 		struct walt_rq *wrq,
 		unsigned int reasons),
@@ -468,7 +468,7 @@ TRACE_EVENT(sched_load_to_gov,
 		__field(u64,	pl)
 		__field(u64,	nbl)
 		__field(u64,	load)
-		__field(int,	big_task_rotation)
+		__field(bool,	big_task_rotation)
 		__field(unsigned int, user_hint)
 		__field(unsigned int, reasons)
 		__field(u64, util)
@@ -659,10 +659,11 @@ TRACE_EVENT(core_ctl_sbt,
  * Tracepoint for sched_get_nr_running_avg
  */
 TRACE_EVENT(sched_get_nr_running_avg,
-	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max, int nr_scaled,
+	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max, int nr_scaled, int nr_giant,
 		 bool trailblazer_boost_cpu),
 
-	TP_ARGS(cpu, nr, nr_misfit, nr_max, nr_scaled, trailblazer_boost_cpu),
+	TP_ARGS(cpu, nr, nr_misfit, nr_max, nr_scaled, nr_giant,
+		trailblazer_boost_cpu),
 
 	TP_STRUCT__entry(
 		__field(int, cpu)
@@ -670,6 +671,7 @@ TRACE_EVENT(sched_get_nr_running_avg,
 		__field(int, nr_misfit)
 		__field(int, nr_max)
 		__field(int, nr_scaled)
+		__field(int, nr_giant)
 		__field(bool, trailblazer_boost_cpu)
 	),
 
@@ -679,12 +681,14 @@ TRACE_EVENT(sched_get_nr_running_avg,
 		__entry->nr_misfit	= nr_misfit;
 		__entry->nr_max		= nr_max;
 		__entry->nr_scaled	= nr_scaled;
+		__entry->nr_giant	= nr_giant;
 		__entry->trailblazer_boost_cpu	= trailblazer_boost_cpu;
 	),
 
-	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d nr_scaled=%d trailblazer_boost_cpu=%d",
+	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d nr_scaled=%d nr_giant=%d trailblazer_boost_cpu=%d",
 		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max,
-		__entry->nr_scaled, __entry->trailblazer_boost_cpu)
+		__entry->nr_scaled, __entry->nr_giant,
+		__entry->trailblazer_boost_cpu)
 );
 
 TRACE_EVENT(sched_busy_hyst_time,
