@@ -1096,6 +1096,14 @@ done:
 	mutex_unlock(&chip->mutex);
 }
 
+static unsigned int uaudio_ep_index_to_address(unsigned int ep_index)
+{
+	unsigned int ep_num = (ep_index + 1) / 2;
+	unsigned int direction = (ep_index % 2) ? USB_DIR_OUT : USB_DIR_IN;
+
+	return direction | ep_num;
+}
+
 /**
  * uaudio_sb_notifier() - xHCI sideband event handler
  * @intf: USB interface handle
@@ -1125,10 +1133,11 @@ static int uaudio_sb_notifier(struct usb_interface *intf,
 
 	if (evt->type == XHCI_SIDEBAND_XFER_RING_FREE) {
 		unsigned int *ep = (unsigned int *) evt->evt_data;
+		unsigned int ep_addr = uaudio_ep_index_to_address(*ep);
 
 		for (if_idx = 0; if_idx < dev->num_intf; if_idx++) {
-			if ((dev->info[if_idx].data_ep_idx & EP_MASK) == *ep
-			 || (dev->info[if_idx].sync_ep_idx & EP_MASK) == *ep)
+			if ((dev->info[if_idx].data_ep_idx == ep_addr) ||
+			    (dev->info[if_idx].sync_ep_idx == ep_addr))
 				uaudio_send_disconnect_ind(chip);
 		}
 	}
