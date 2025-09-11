@@ -1173,6 +1173,22 @@ void qcom_scm_halt_spmi_pmic_arbiter(void)
 		pr_debug("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
 }
 
+int qcom_scm_spmi_permission_switch(u8 mode)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_PWR,
+		.cmd = QCOM_SCM_PWR_GPIO_TRANSFER_ACCESS,
+		.owner = ARM_SMCCC_OWNER_SIP,
+		.args[0] = mode,
+		.arginfo = QCOM_SCM_ARGS(3),
+	};
+	desc.args[1] = 0;
+	desc.args[2] = 0;
+
+	return qcom_scm_call(__scm->dev, &desc, NULL);
+}
+EXPORT_SYMBOL_GPL(qcom_scm_spmi_permission_switch);
+
 /**
  * qcom_scm_restore_sec_cfg_available() - Check if secure environment
  * supports restore security config interface.
