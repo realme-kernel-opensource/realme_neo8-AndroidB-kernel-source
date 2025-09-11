@@ -170,6 +170,9 @@ def define_single_le_build(
         "{}_merge_msm_uapi_headers".format(stem),
         "{}_le_build_config".format(stem),
         "{}_tar_kernel_headers".format(stem),
+        # Keys needed for kernel module signing and verification
+        ":signing_key",
+        ":verity_key",
     ] + [
         ":{}/{}".format(stem, module)
         for module in modules
@@ -200,6 +203,7 @@ def define_single_le_build(
             "**/Image": "755",
             "**/*.dtb*": "755",
             "**/LinuxLoader*": "755",
+            "**/sign-file": "755",
             "**/*": "644",
         },
     )
