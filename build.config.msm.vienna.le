@@ -1,7 +1,18 @@
+################################################################################
+## Inheriting configs from ACK
+. "${KERNEL_DIR}/build.config.constants"
+ARCH=arm64
+LLVM=1
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-${CLANG_VERSION}/bin
+BUILDTOOLS_PREBUILT_BIN=build/kernel/build-tools/path/linux-x86
+
+#################################################################################
 ## Target and Variant setup
 MSM_ARCH=vienna_le
 VARIANTS=(defconfig debug-defconfig)
 [ -z "${VARIANT}" ] && VARIANT=debug-defconfig
+[ -n "${VARIANT}" ] && ! [[ " ${VARIANTS[*]} " =~  ${VARIANT}  ]] && echo "Error: Invalid VARIANT specified" && exit 1
+
 
 ABL_SRC=bootable/bootloader/edk2
 BOOT_IMAGE_HEADER_VERSION=2
