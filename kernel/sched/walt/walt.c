@@ -2604,8 +2604,11 @@ static u64 update_task_demand(struct task_struct *p, struct rq *rq,
 	update_history(rq, p, wts->sum, 1, event);
 	if (nr_full_windows) {
 		u64 scaled_window = scale_exec_time(window_size, rq, wts);
+		int exmples = nr_full_windows;
 
-		update_history(rq, p, scaled_window, nr_full_windows, event);
+		if (nr_full_windows > RAVG_HIST_SIZE)
+			exmples = RAVG_HIST_SIZE;
+		update_history(rq, p, scaled_window, exmples, event);
 		runtime += nr_full_windows * scaled_window;
 	}
 
