@@ -624,4 +624,22 @@ config SC_AV1ECC_X1P42100
 	  to the AV1 encoder hardware block, which is used for AV1 video encoding
 	  acceleration.
 
+config SM_GCC_CHORA
+        tristate "CHORA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+        help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  Chora devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C, USB,
+	  SD/UFS, PCIe etc.
+
+config SM_TCSRCC_CHORA
+	tristate "CHORA Top-Level CSR Clock Controller"
+	depends on SM_GCC_CHORA
+	help
+	  Support for the TCSR clock controller on Qualcomm Technologies, Inc
+	  CHORA devices.
+	  Say Y if you want to support miscellaneous top-level clocks
+	  such as for the PHY references.
+
 endif
