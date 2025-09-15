@@ -73,6 +73,13 @@ struct irq_work walt_migration_irq_work;
 bool walt_rotation_enabled;
 bool plenty_giant_tasks;
 
+/*
+ * These are to track following cgroups:
+ * /dev/cpuctl/apps and /dev/cpuctl/apps/top-app
+ */
+struct cgroup *apps_cgroup;
+struct cgroup *apps_topapp_cgroup;
+
 unsigned int __read_mostly sched_ravg_window = 20000000;
 int min_possible_cluster_id;
 int max_possible_cluster_id;
@@ -3893,16 +3900,78 @@ static int create_default_coloc_group(void)
 	return 0;
 }
 
+static void android_rvh_cpu_cgroup_free(void *unused, struct cgroup_subsys_state *css)
+{
+	struct cgroup *cur_cg = css->cgroup;
+
+	/*
+	 * We are only tracking whether /dev/cpuctl/apps or
+	 * /dev/cpuctl/apps/top-app cgroups are freed
+	 */
+	if (!strcmp(cur_cg->kn->name, "apps") && (cur_cg->level == 1))
+		apps_cgroup = NULL;
+	else if (!strcmp(cur_cg->kn->name, "top-app") && (cur_cg->level == 2))
+		apps_topapp_cgroup = NULL;
+}
+
+static __always_inline bool is_top_app_cgroup_descendant(struct cgroup *cgroup)
+{
+	if (apps_topapp_cgroup &&
+			cgroup_is_descendant(cgroup, apps_topapp_cgroup) &&
+			(strcmp(cgroup->kn->name, "normal") == 0))
+		return true;
+
+	if (apps_topapp_cgroup &&
+			cgroup_is_descendant(cgroup, apps_topapp_cgroup) &&
+			(strcmp(cgroup->kn->name, "latency-sensitive") == 0))
+		return true;
+
+	return false;
+}
+
 static void walt_update_tg_pointer(struct cgroup_subsys_state *css)
 {
-	if (!strcmp(css->cgroup->kn->name, "top-app"))
+	struct cgroup *cur_cg = css->cgroup;
+
+	if (!strcmp(cur_cg->kn->name, "apps") && (cur_cg->level == 1)) {
+		apps_cgroup = cur_cg;
+
+	} else if (!strcmp(cur_cg->kn->name, "top-app")) {
+
+		if (cur_cg->level == 1) {
+			/*
+			 * 'top-app' cgroup that is created at the root level is
+			 * considered as top-app group. Example: /dev/cpuctl/top-app
+			 */
+			walt_init_topapp_tg(css_tg(css));
+
+		} else if ((cur_cg->level == 2) && apps_cgroup &&
+				cgroup_is_descendant(cur_cg, apps_cgroup)) {
+			/*
+			 * 'top-app' cgroup that is created in 'apps' cgroup is
+			 * considered as top-app group. Example: /dev/cpuctl/apps/top-app
+			 */
+			apps_topapp_cgroup = cur_cg;
+			walt_init_topapp_tg(css_tg(css));
+
+		} else {
+			/*
+			 * Any other 'top-app' cgroup will not be considered as top-app group
+			 */
+			walt_init_tg(css_tg(css));
+		}
+	} else if (apps_cgroup && is_top_app_cgroup_descendant(cur_cg)) {
 		walt_init_topapp_tg(css_tg(css));
-	else if (!strcmp(css->cgroup->kn->name, "foreground"))
+
+	} else if (!strcmp(cur_cg->kn->name, "foreground")) {
 		walt_init_foreground_tg(css_tg(css));
-	else if (!strcmp(css->cgroup->kn->name, "background"))
+
+	} else if (!strcmp(css->cgroup->kn->name, "background")) {
 		walt_init_background_tg(css_tg(css));
-	else
+
+	} else {
 		walt_init_tg(css_tg(css));
+	}
 }
 
 void walt_kick_cpu(int cpu)
@@ -5821,6 +5890,7 @@ static void register_walt_hooks(void)
 	register_trace_android_vh_scheduler_tick(android_vh_scheduler_tick, NULL);
 	register_trace_android_rvh_schedule(android_rvh_schedule, NULL);
 	register_trace_android_rvh_cpu_cgroup_attach(android_rvh_cpu_cgroup_attach, NULL);
+	register_trace_android_vh_cpu_cgroup_css_free(android_rvh_cpu_cgroup_free, NULL);
 	register_trace_android_rvh_cpu_cgroup_online(android_rvh_cpu_cgroup_online, NULL);
 	register_trace_android_rvh_sched_fork_init(android_rvh_sched_fork_init, NULL);
 	register_trace_android_rvh_ttwu_cond(android_rvh_ttwu_cond, NULL);
