@@ -1193,7 +1193,25 @@ static int __maybe_unused tsens_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(tsens_pm_ops, tsens_suspend, tsens_resume);
+static int __maybe_unused tsens_freeze(struct device *dev)
+{
+	struct tsens_priv *priv = dev_get_drvdata(dev);
+
+	if (priv->ops && priv->ops->freeze)
+		return priv->ops->freeze(priv);
+
+	return 0;
+}
+
+static int __maybe_unused tsens_restore(struct device *dev)
+{
+	struct tsens_priv *priv = dev_get_drvdata(dev);
+
+	if (priv->ops && priv->ops->restore)
+		return priv->ops->restore(priv);
+
+	return 0;
+}
 
 static const struct of_device_id tsens_table[] = {
 	{
@@ -1251,7 +1269,7 @@ static const struct thermal_zone_device_ops tsens_of_ops = {
 };
 
 static int tsens_register_irq(struct tsens_priv *priv, char *irqname,
-			      irq_handler_t thread_fn)
+			      irq_handler_t thread_fn, int *irq_num)
 {
 	struct platform_device *pdev;
 	int ret, irq;
@@ -1261,6 +1279,7 @@ static int tsens_register_irq(struct tsens_priv *priv, char *irqname,
 		return -ENODEV;
 
 	irq = platform_get_irq_byname(pdev, irqname);
+	*irq_num = irq;
 	if (irq < 0) {
 		ret = irq;
 		/* For old DTs with no IRQ defined */
@@ -1311,10 +1330,41 @@ static int tsens_reinit(struct tsens_priv *priv)
 	return 0;
 }
 
+int tsens_v2_tsens_suspend(struct tsens_priv *priv)
+{
+	if (pm_suspend_target_state != PM_SUSPEND_MEM)
+		return 0;
+
+	if (priv->uplow_irq > 0) {
+		disable_irq_nosync(priv->uplow_irq);
+		disable_irq_wake(priv->uplow_irq);
+	}
+
+	if (priv->feat->crit_int && priv->crit_irq > 0) {
+		disable_irq_nosync(priv->crit_irq);
+		disable_irq_wake(priv->crit_irq);
+	}
+
+	return 0;
+}
+
 int tsens_resume_common(struct tsens_priv *priv)
 {
-	if (pm_suspend_target_state == PM_SUSPEND_MEM)
+
+	if (pm_suspend_target_state == PM_SUSPEND_MEM) {
 		tsens_reinit(priv);
+
+		if (priv->uplow_irq > 0) {
+			enable_irq(priv->uplow_irq);
+			enable_irq_wake(priv->uplow_irq);
+		}
+
+		if (priv->feat->crit_int && priv->crit_irq > 0) {
+			enable_irq(priv->crit_irq);
+			enable_irq_wake(priv->crit_irq);
+		}
+	}
+
 
 	return 0;
 }
@@ -1386,6 +1436,39 @@ static bool tsens_is_nvmem_trip_update_needed(struct tsens_priv *priv)
 	return false;
 }
 
+int tsens_v2_tsens_freeze(struct tsens_priv *priv)
+{
+
+	if (priv->uplow_irq > 0) {
+		disable_irq_nosync(priv->uplow_irq);
+		disable_irq_wake(priv->uplow_irq);
+	}
+
+	if (priv->feat->crit_int && priv->crit_irq > 0) {
+		disable_irq_nosync(priv->crit_irq);
+		disable_irq_wake(priv->crit_irq);
+	}
+
+	return 0;
+}
+
+int tsens_v2_tsens_restore(struct tsens_priv *priv)
+{
+	tsens_reinit(priv);
+
+	if (priv->uplow_irq > 0) {
+		enable_irq(priv->uplow_irq);
+		enable_irq_wake(priv->uplow_irq);
+	}
+
+	if (priv->feat->crit_int && priv->crit_irq > 0) {
+		enable_irq(priv->crit_irq);
+		enable_irq_wake(priv->crit_irq);
+	}
+
+	return 0;
+}
+
 static int tsens_register(struct tsens_priv *priv)
 {
 	int i, ret;
@@ -1426,15 +1509,15 @@ static int tsens_register(struct tsens_priv *priv)
 
 	if (priv->feat->combo_int) {
 		ret = tsens_register_irq(priv, "combined",
-					 tsens_combined_irq_thread);
+					 tsens_combined_irq_thread, &priv->comb_irq);
 	} else {
-		ret = tsens_register_irq(priv, "uplow", tsens_irq_thread);
+		ret = tsens_register_irq(priv, "uplow", tsens_irq_thread, &priv->uplow_irq);
 		if (ret < 0)
 			return ret;
 
 		if (priv->feat->crit_int)
 			ret = tsens_register_irq(priv, "critical",
-						 tsens_critical_irq_thread);
+						 tsens_critical_irq_thread, &priv->crit_irq);
 	}
 
 	return ret;
@@ -1482,6 +1565,9 @@ static int tsens_probe(struct platform_device *pdev)
 	priv->dev = dev;
 	priv->num_sensors = num_sensors;
 	priv->ops = data->ops;
+	priv->uplow_irq = -1;
+	priv->crit_irq = -1;
+	priv->comb_irq = -1;
 	for (i = 0;  i < priv->num_sensors; i++) {
 		if (data->hw_ids)
 			priv->sensor[i].hw_id = data->hw_ids[i];
@@ -1525,6 +1611,13 @@ static void tsens_remove(struct platform_device *pdev)
 	if (priv->ops->disable)
 		priv->ops->disable(priv);
 }
+
+static const struct dev_pm_ops tsens_pm_ops = {
+	.freeze = tsens_freeze,
+	.restore = tsens_restore,
+	.suspend = tsens_suspend,
+	.resume = tsens_resume,
+};
 
 static struct platform_driver tsens_driver = {
 	.probe = tsens_probe,
