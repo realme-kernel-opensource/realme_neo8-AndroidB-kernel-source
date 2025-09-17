@@ -15,7 +15,7 @@ load(
 load("//common:modules.bzl", "get_gki_modules_list", "get_kunit_modules_list")
 load(":kleaf-scripts/image_opts.bzl", "boot_image_opts")
 
-def define_qcom_le_setup(config_file):
+def define_qcom_le_setup(name, config_file):
     """
     Generates a generic LE build config.
     Args:
@@ -39,19 +39,19 @@ def define_qcom_le_setup(config_file):
 
     # write defaults to a file
     write_file(
-        name = "le_build_config",
-        out = "build.config.msm.le",
+        name = "{}_build_config".format(name),
+        out = "{}.build.config.msm.le".format(name),
         content = ["{}={}".format(k, v) for k, v in defaults.items()] + [""],
     )
 
     # merge: defaults → user config
     config_sources = [
-        ":le_build_config",
+        ":{}_build_config".format(name),
         config_file,
     ]
 
     kernel_build_config(
-        name = "build.config.qcom.le",
+        name = "{}.build.config.qcom.le".format(name),
         srcs = config_sources,
     )
 
@@ -70,7 +70,7 @@ def define_qcom_le(
         name = "{}.build.config.qcom.le".format(stem),
         srcs = [
             ":{}_cmdline_extras".format(stem),
-            ":build.config.qcom.le",  # merged build config
+            ":{}.build.config.qcom.le".format(target),  # merged build config
         ],
     )
 
@@ -105,7 +105,7 @@ def define_qcom_le(
     )
     return [dtb_list, dtbo_list]
 
-def define_base_kernel(name, defconfig, defconfig_fragments = None):
+def define_base_kernel(name, base_kernel, defconfig, defconfig_fragments = None):
     out_list = aarch64_outs + [
         ".config",
         "Module.symvers",
@@ -117,7 +117,7 @@ def define_base_kernel(name, defconfig, defconfig_fragments = None):
         if item in out_list:
             out_list.remove(item)
     kernel_build(
-        name = name,
+        name = base_kernel,
         srcs = ["//common:kernel_aarch64_sources"],
         outs = out_list,
         arch = "arm64",
@@ -125,7 +125,7 @@ def define_base_kernel(name, defconfig, defconfig_fragments = None):
             "Image",
             "modules",
         ],
-        build_config = ":build.config.qcom.le",
+        build_config = ":{}.build.config.qcom.le".format(name),
         defconfig = defconfig,
         pre_defconfig_fragments = defconfig_fragments,
         module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
@@ -134,14 +134,16 @@ def define_base_kernel(name, defconfig, defconfig_fragments = None):
         visibility = ["//visibility:public"],
     )
 
-def define_le(build_config):
-    define_qcom_le_setup(build_config)
+def define_le(name, build_config):
+    define_qcom_le_setup(name, build_config)
     define_base_kernel(
-        "kernel_aarch64_le",
+        name,
+        "{}_kernel_aarch64_le".format(name),
         "arch/arm64/configs/generic_le_defconfig",
     )
     define_base_kernel(
-        "kernel_aarch64_le_debug",
+        name,
+        "{}_kernel_aarch64_le_debug".format(name),
         "arch/arm64/configs/generic_le_defconfig",
         defconfig_fragments = ["arch/arm64/configs/consolidate.fragment"],
     )
