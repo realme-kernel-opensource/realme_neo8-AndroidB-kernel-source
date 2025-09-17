@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <trace/hooks/sched.h>
@@ -302,16 +302,7 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	 * requirement of the task - which is only important on heterogeneous
 	 * systems like big.LITTLE.
 	 */
-	/*
-	 * RT_SOFTIRQ_AWARE_SCHED feature is not available on
-	 * android-mainline. During the most recent LTS merge, the
-	 * changes were not picked up. Since WALT initialization cannot wait
-	 * until next LTS merge, provide this workaround of not using the
-	 * cpu_busy_with_softirqs function until it is present in the downstream
-	 * kernel.
-	 */
-	may_not_preempt = false;
-	//may_not_preempt = cpu_busy_with_softirqs(cpu);
+	may_not_preempt = cpu_busy_with_softirqs(cpu);
 
 	lowest_mask = this_cpu_cpumask_var_ptr(walt_local_cpu_mask);
 
