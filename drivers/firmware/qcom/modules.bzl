@@ -34,22 +34,16 @@ def register_modules(registry):
                     "drivers/firmware/qcom/qcom_scm_hab.c",
                 ],
             },
+            "CONFIG_QCOM_TZMEM": {
+                True: [
+                    # do not sort
+                    "drivers/firmware/qcom/qcom_tzmem.c",
+                ],
+            },
         },
         deps = [
             # do not sort
-            "drivers/firmware/qcom/qcom_tzmem",
             "drivers/virt/gunyah/gh_rm_drv",
             "drivers/soc/qcom/hab/msm_hab",
-        ],
-    )
-
-    registry.register(
-        name = "drivers/firmware/qcom/qcom_tzmem",
-        out = "qcom_tzmem.ko",
-        config = "CONFIG_QCOM_TZMEM",
-        srcs = [
-            # do not sort
-            "drivers/firmware/qcom/qcom_tzmem.c",
-            "drivers/firmware/qcom/qcom_tzmem.h",
         ],
     )
