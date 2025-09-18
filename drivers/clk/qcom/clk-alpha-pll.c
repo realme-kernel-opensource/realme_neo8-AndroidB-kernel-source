@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015, 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/kernel.h>
@@ -2739,8 +2739,10 @@ static void zonda_pll_adjust_l_val(unsigned long rate, unsigned long prate, u32 
 
 	quotient = rate;
 	remainder = do_div(quotient, prate);
+	*l = quotient;
 
-	*l = rate + (u32)(remainder * 2 >= prate);
+	if ((remainder * 2) / prate)
+		*l = *l + 1;
 }
 
 static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -2785,6 +2787,35 @@ static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	/* Wait for PLL output to stabilize */
 	udelay(100);
 	return 0;
+}
+
+static unsigned long alpha_pll_adjust_calc_rate(u64 prate, u32 l, u32 frac,
+		u32 alpha_width)
+{
+	uint64_t tmp;
+
+	frac = 100 - DIV_ROUND_UP_ULL((frac * 100), BIT(alpha_width));
+
+	tmp = frac * prate;
+	do_div(tmp, 100);
+
+	return (l * prate) - tmp;
+}
+
+static unsigned long
+clk_zonda_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 l, frac, alpha_width = pll_alpha_width(pll);
+
+	regmap_read(pll->clkr.regmap, PLL_L_VAL(pll), &l);
+	regmap_read(pll->clkr.regmap, PLL_ALPHA_VAL(pll), &frac);
+
+	if (frac & BIT(15))
+		return alpha_pll_adjust_calc_rate(parent_rate, l, frac,
+								alpha_width);
+	else
+		return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
 }
 
 static void clk_alpha_pll_zonda_list_registers(struct seq_file *f,
@@ -2854,7 +2885,7 @@ const struct clk_ops clk_alpha_pll_zonda_ops = {
 	.enable = clk_zonda_pll_enable,
 	.disable = clk_zonda_pll_disable,
 	.is_enabled = clk_trion_pll_is_enabled,
-	.recalc_rate = clk_trion_pll_recalc_rate,
+	.recalc_rate = clk_zonda_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_zonda_pll_set_rate,
 	.debug_init = clk_common_debug_init,
