@@ -1884,6 +1884,7 @@ static void zram_compress_success_handler(struct qpace_event_descriptor *ed, int
 
 	unsigned long alloced_pages;
 	void *dst;
+	unsigned int no_reclaim;
 
 	pr_debug("comp-success-handler, index: %d\n", ed_index);
 
@@ -1910,11 +1911,13 @@ static void zram_compress_success_handler(struct qpace_event_descriptor *ed, int
 		comp_source = ed->out_addr;
 	}
 
+	no_reclaim = memalloc_noreclaim_save();
 	handle = zs_malloc(zmeta->zram->mem_pool, comp_len,
 			   __GFP_KSWAPD_RECLAIM |
 			   __GFP_NOWARN |
 			   __GFP_HIGHMEM |
 			   __GFP_MOVABLE);
+	memalloc_noreclaim_restore(no_reclaim);
 	if (IS_ERR_VALUE(handle)) {
 		zram_abandon_requests(&comp_control);
 		atomic64_inc(&zmeta->zram->stats.writestall);
