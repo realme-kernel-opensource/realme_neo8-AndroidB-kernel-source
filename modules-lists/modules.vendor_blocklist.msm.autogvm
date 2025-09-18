@@ -7,7 +7,6 @@ blocklist atomic64_test
 blocklist boot_stats
 blocklist dummy-cpufreq
 blocklist dummy_hcd
-blocklist dummy_hcd
 blocklist e4000
 blocklist fc0011
 blocklist fc0012
