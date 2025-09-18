@@ -169,6 +169,21 @@ def register_modules(registry):
     )
 
     registry.register(
+        name = "drivers/pinctrl/qcom/pinctrl-bengal",
+        out = "pinctrl-bengal.ko",
+        config = "CONFIG_PINCTRL_BENGAL",
+        srcs = [
+            # do not sort
+            "drivers/pinctrl/qcom/pinctrl-msm.h",
+            "drivers/pinctrl/qcom/pinctrl-bengal.c",
+        ],
+        deps = [
+            # do not sort
+            "drivers/pinctrl/qcom/pinctrl-msm",
+        ],
+    )
+
+    registry.register(
         name = "drivers/pinctrl/qcom/pinctrl-malabar",
         out = "pinctrl-malabar.ko",
         config = "CONFIG_PINCTRL_MALABAR",
