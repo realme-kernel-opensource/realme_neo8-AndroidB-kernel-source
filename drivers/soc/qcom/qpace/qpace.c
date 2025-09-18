@@ -195,7 +195,7 @@ static inline u32 qpace_urgent_command_trigger(phys_addr_t input_addr,
 	urg_addr_field_upper = input_addr;
 
 	/* Ensure that preceding stores that QPaCE will depend on are done executing */
-	mb();
+	dma_wmb();
 
 	asm volatile(
 	"stp %0, %1, [%2]\n"

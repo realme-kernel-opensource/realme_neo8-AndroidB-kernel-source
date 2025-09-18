@@ -584,4 +584,24 @@ config SC_CAMCC_X1P42100
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config CLK_X1E80100_GCC
+	tristate "X1E80100 Global Clock Controller"
+	depends on ARM64 || COMPILE_TEST || COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  X1E80100 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config CLK_X1E80100_GPUCC
+	tristate "X1E80100 Graphics Clock Controller"
+	depends on ARM64 || COMPILE_TEST
+	select CLK_X1E80100_GCC
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  X1E80100 devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 endif

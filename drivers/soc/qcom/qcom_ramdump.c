@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/kernel.h>
@@ -103,6 +103,93 @@ static int qcom_devcd_dump(struct device *dev, void *data, size_t datalen, gfp_t
 	return !completion_done(&desc.dump_done);
 }
 
+/**
+ * coredump_cleanup() - clean up dump_segments list
+ * @head:	coredump segment list head
+ *
+ * Cleans up and releases all resources associated with the dump_segments list.
+ */
+void coredump_cleanup(struct list_head *head)
+{
+	struct qcom_dump_segment *entry, *tmp;
+
+	list_for_each_entry_safe(entry, tmp, head, node) {
+		list_del(&entry->node);
+		kfree(entry);
+	}
+}
+EXPORT_SYMBOL_GPL(coredump_cleanup);
+
+/**
+ * coredump_add_segment() - add segment of device memory to coredump
+ * @head:	coredump segment list head
+ * @va:		virtual address
+ * @da:		device address
+ * @size:	size of segment
+ *
+ * Add device memory to the list of segments to be included in a coredump.
+ *
+ * Return: 0 on success, negative errno on error.
+ */
+int coredump_add_segment(struct list_head *head, void *va, dma_addr_t da, size_t size)
+{
+	struct qcom_dump_segment *segment;
+
+	segment = kzalloc(sizeof(*segment), GFP_KERNEL);
+	if (!segment)
+		return -ENOMEM;
+
+	segment->da = da;
+	segment->va = va;
+	segment->size = size;
+
+	list_add_tail(&segment->node, head);
+
+	return 0;
+}
+
+/**
+ * register_dump_segments() - register segments for coredump
+ * @head:	coredump segment list head
+ * @fw:		firmware header
+ *
+ * Register all segments of the ELF in the coredump segment list
+ *
+ * Return: 0 on success, negative errno on failure.
+ */
+int register_dump_segments(struct list_head *head, const struct firmware *fw)
+{
+	const struct elf32_phdr *phdrs;
+	const struct elf32_phdr *phdr;
+	const struct elf32_hdr *ehdr;
+	int ret;
+	int i;
+
+	ehdr = (struct elf32_hdr *)fw->data;
+	phdrs = (struct elf32_phdr *)(ehdr + 1);
+
+	for (i = 0; i < ehdr->e_phnum; i++) {
+		phdr = &phdrs[i];
+
+		if (phdr->p_type != PT_LOAD)
+			continue;
+
+		if ((phdr->p_flags & QCOM_MDT_TYPE_MASK) == QCOM_MDT_TYPE_HASH)
+			continue;
+
+		if (!phdr->p_memsz)
+			continue;
+
+		ret = coredump_add_segment(head, NULL, phdr->p_paddr,
+						 phdr->p_memsz);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(register_dump_segments);
+
 int qcom_dump(struct list_head *segs, struct device *dev)
 {
 	struct qcom_dump_segment *segment;
@@ -170,6 +257,11 @@ int qcom_elf_dump(struct list_head *segs, struct device *dev, unsigned char clas
 
 	if (!segs || list_empty(segs))
 		return -EINVAL;
+
+	if (class == ELFCLASSNONE) {
+		dev_err(dev, "ELF class is not set\n");
+		return -EINVAL;
+	}
 
 	data_size = sizeof_elf_hdr(class);
 	list_for_each_entry(segment, segs, node) {

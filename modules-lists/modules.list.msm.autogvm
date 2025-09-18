@@ -48,3 +48,6 @@ pinctrl-spmi-mpp.ko
 qcom_wdt_core.ko
 smem.ko
 deferred-free-helper.ko
+virtio_net.ko
+net_failover.ko
+failover.ko
