@@ -658,4 +658,31 @@ config SM_TCSRCC_CHORA
 	  Say Y if you want to support miscellaneous top-level clocks
 	  such as for the PHY references.
 
+config SM_GCC_KHAJE
+	tristate "KHAJE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  on KHAJE devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.
+
+config SM_DISPCC_KHAJE
+	tristate "KHAJE Display Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the display clock controller on Qualcomm Technologies, Inc.
+	 KHAJE devices.
+	 Say Y if you want to support display devices and functionality such as
+	 splash screen.
+
+config SM_GPUCC_KHAJE
+	tristate "KHAJE Graphics Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  KHAJE devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 endif
