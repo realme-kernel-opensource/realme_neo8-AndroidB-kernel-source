@@ -75,17 +75,38 @@ bias_to_this_cpu(struct task_struct *p, int cpu, int start_cpu)
 	return base_test && start_cap_test;
 }
 
+/*
+ * Checks if a low priority task can fit on the given cpu
+ */
+inline bool can_fit_low_prio_task(struct task_struct *p, int cpu)
+{
+	/*
+	 * A non top-app low priority (less than 124) task should be
+	 * allowed to fit on medium cpus.
+	 * However, if we want to limit prime cpu usage, i.e.
+	 * SOC_ENABLE_LIMIT_PRIME_USAGE is enabled, then allow any low priority
+	 * task (both top-app and non top-app tasks with prio less than 124) to
+	 * fit on medium cpus
+	 */
+	if ((!task_in_related_thread_group(p) || soc_feat(SOC_ENABLE_LIMIT_PRIME_USAGE))
+			&& p->prio >= 124 && !is_max_possible_cluster_cpu(cpu)) {
+		return (num_sched_clusters > 2) ? !is_min_possible_cluster_cpu(cpu) : true;
+	}
+
+	return false;
+}
+
 static inline bool task_demand_fits(struct task_struct *p, int dst_cpu)
 {
 	if (is_max_possible_cluster_cpu(dst_cpu))
 		return true;
 
-	if (!task_in_related_thread_group(p) && p->prio >= 124 &&
-			!is_min_possible_cluster_cpu(dst_cpu) &&
-			!is_max_possible_cluster_cpu(dst_cpu)) {
-		/* a non topapp low prio task fits on gold */
+	/*
+	 * A non top-app low priority task fits on medium cpus
+	 */
+	if (can_fit_low_prio_task(p, dst_cpu))
 		return true;
-	}
+
 	return task_fits_capacity(p, dst_cpu);
 }
 
