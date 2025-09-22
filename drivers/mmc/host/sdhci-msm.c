@@ -30,6 +30,11 @@
 #include <linux/pinctrl/qcom-pinctrl.h>
 #include <linux/device.h>
 #include <linux/of_platform.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/delay.h>
+#include <linux/err.h>
 
 #include <soc/qcom/ice.h>
 
@@ -544,6 +549,9 @@ struct sdhci_msm_host {
 	void *sdhci_msm_ipc_log_ctx;
 	bool dbg_en;
 	bool enable_ext_fb_clk;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pinctrl_state_default;
+	struct pinctrl_state *pinctrl_state_gpio;
 };
 
 static struct sdhci_msm_host *sdhci_slot[3];
@@ -5135,6 +5143,34 @@ static int sdhci_msm_parse_sdio(struct platform_device *pdev)
 	return 0;
 }
 
+static void sdhci_msm_parse_pinctrl(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	msm_host->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(msm_host->pinctrl)) {
+		dev_dbg(dev, "Failed to get pinctrl\n");
+		msm_host->pinctrl = NULL;
+		return;
+	}
+
+	msm_host->pinctrl_state_default =
+		pinctrl_lookup_state(msm_host->pinctrl, "default");
+	if (IS_ERR(msm_host->pinctrl_state_default)) {
+		dev_dbg(dev, "Failed to lookup default state\n");
+		msm_host->pinctrl_state_default = NULL;
+	}
+
+	msm_host->pinctrl_state_gpio =
+		pinctrl_lookup_state(msm_host->pinctrl, "gpio");
+	if (IS_ERR(msm_host->pinctrl_state_gpio)) {
+		dev_dbg(dev, "Failed to lookup gpio state\n");
+		msm_host->pinctrl_state_gpio = NULL;
+	}
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -5313,6 +5349,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto pm_runtime_disable;
 
+	sdhci_msm_parse_pinctrl(dev);
+
 	/*
 	 * Set platfm_init_done only after sdhci_add_host().
 	 * So that we don't turn off vqmmc while we reset sdhc as
@@ -5408,6 +5446,57 @@ skip_removing_qos:
 	sdhci_pltfm_free(pdev);
 }
 
+static void sdhci_msm_toggle_dat1_gpio(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct device *dev = mmc_dev(host->mmc);
+	int gpio_num;
+	int ret;
+
+	if (!msm_host->pinctrl || !msm_host->pinctrl_state_gpio ||
+			IS_ERR(msm_host->pinctrl) || IS_ERR(msm_host->pinctrl_state_gpio)) {
+		dev_dbg(dev, "Invalid pinctrl\n");
+		return;
+	}
+
+	/* Switch pinctrl to GPIO mode */
+	ret = pinctrl_select_state(msm_host->pinctrl, msm_host->pinctrl_state_gpio);
+	if (ret) {
+		dev_err(dev, "Failed to switch to gpio state: %d\n", ret);
+		return;
+	}
+
+	/* Find the GPIO number for DAT1 */
+	gpio_num = of_get_named_gpio(dev->of_node, "qcom,dat1-gpio", 0);
+	if (gpio_num < 0) {
+		dev_err(dev, "Failed to get DAT1 GPIO from DT\n");
+		return;
+	}
+
+	ret = gpio_request(gpio_num, "sdio-dat1");
+	if (ret) {
+		dev_err(dev, "Failed to request gpio: %d\n", ret);
+		return;
+	}
+
+	/* Toggle GPIO */
+	gpio_direction_output(gpio_num, 1); /* Set HIGH */
+	msleep(20);
+	gpio_set_value(gpio_num, 0); /* Set LOW */
+	msleep(20);
+
+	/* Free the GPIO after operation */
+	gpio_free(gpio_num);
+
+	/* Optionally switch back to default SDIO mode */
+	ret = pinctrl_select_state(msm_host->pinctrl, msm_host->pinctrl_state_default);
+	if (ret)
+		dev_err(dev, "Failed to switch back to default state: %d\n", ret);
+
+	dev_dbg(dev, "Successfully toggled SDIO DAT1 via GPIO\n");
+}
+
 static __maybe_unused int sdhci_msm_runtime_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
@@ -5468,6 +5557,9 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 
 	sdhci_msm_vote_pmqos(msm_host->mmc,
 			msm_host->sdhci_qos->active_mask);
+
+	if (msm_host->pinctrl_state_gpio && msm_host->mmc->card)
+		sdhci_msm_toggle_dat1_gpio(host);
 
 skip_qos:
 	ret = sdhci_msm_ice_resume(msm_host);
