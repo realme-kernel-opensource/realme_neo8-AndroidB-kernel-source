@@ -384,6 +384,9 @@ store_attr(use_sched_boost, 0U, 1U);
 static BWMON_ATTR_RW(use_sched_boost);
 show_attr(sched_boost_freq);
 store_attr(sched_boost_freq, 0U, 8192000U);
+show_attr(max_freq_max_mbps);
+store_attr(max_freq_max_mbps, 0U, U32_MAX);
+static BWMON_ATTR_RW(max_freq_max_mbps);
 static BWMON_ATTR_RW(sched_boost_freq);
 show_list_attr(mbps_zones, NUM_MBPS_ZONES);
 store_list_attr(mbps_zones, NUM_MBPS_ZONES, 0U, UINT_MAX);
@@ -418,6 +421,7 @@ static struct attribute *bwmon_attrs[] = {
 	&second_vote_limit.attr,
 	&use_sched_boost.attr,
 	&sched_boost_freq.attr,
+	&max_freq_max_mbps.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(bwmon);
@@ -763,7 +767,10 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	configure_up_and_down_wake(node, meas_mbps, req_mbps);
 
 	node->prev_req = req_mbps;
-
+	if (meas_mbps > node->max_freq_max_mbps)
+		node->bypass_max_freq = true;
+	else
+		node->bypass_max_freq = false;
 	spin_unlock_irqrestore(&sample_irq_lock, flags);
 
 	adj_mbps = req_mbps + node->guard_band_mbps;
@@ -835,7 +842,10 @@ static bool bwmon_update_cur_freq(struct hwmon_node *node)
 	new_freq.ab = MBPS_TO_KHZ(new_freq.ab, hw->dcvs_width);
 	new_freq.ib = MBPS_TO_KHZ(new_freq.ib, hw->dcvs_width);
 	new_freq.ib = max(new_freq.ib, node->min_freq);
-	new_freq.ib = min(new_freq.ib, node->max_freq);
+	if (node->bypass_max_freq)
+		new_freq.ib = min(new_freq.ib, node->hw_max_freq);
+	else
+		new_freq.ib = min(new_freq.ib, node->max_freq);
 	/* sched_boost_freq is intentionally not limited by max_freq */
 	if (node->cur_sched_boost)
 		new_freq.ib = max(new_freq.ib, node->sched_boost_freq);
@@ -1068,6 +1078,7 @@ static int configure_hwmon_node(struct bw_hwmon *hwmon)
 	node->min_mbps = 1500;
 	node->ab_scale = 100;
 	node->second_ab_scale = 0;
+	node->max_freq_max_mbps = U32_MAX;
 	node->mbps_zones[0] = 0;
 	node->hw = hwmon;
 
