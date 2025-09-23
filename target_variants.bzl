@@ -3,6 +3,7 @@ targets = [
     "canoe",
     #"gen3auto",
     "autogvm",
+    "bengal",
     "hamoa",
     "lahaina",
     "sun",
