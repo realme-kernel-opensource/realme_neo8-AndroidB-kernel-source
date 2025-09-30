@@ -99,7 +99,7 @@ static ssize_t platform_mpam_schemata_store(struct config_item *item,
 			bw_set_ratio = input;
 		else if (!strcmp("limit_mbps", param_name) &&
 				pm_item->bw_cfg->max_bw != 0)
-			bw_set_ratio = DIV_ROUND_UP(input, pm_item->bw_cfg->max_bw / 100);
+			bw_set_ratio = DIV_ROUND_UP(input * 100, pm_item->bw_cfg->max_bw);
 
 		if (bw_set_ratio)
 			qcom_mpam_set_bw_limit_rpmsg(bw_set_ratio);

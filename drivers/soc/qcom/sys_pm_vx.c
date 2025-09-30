@@ -405,6 +405,8 @@ static void vx_check_drv(struct vx_platform_data *pd)
 {
 	struct vx_log log;
 	int i, j, ret;
+	const char **drvs;
+	size_t n_drv;
 
 	ret = read_vx_data(pd, &log);
 	if (ret) {
@@ -412,12 +414,18 @@ static void vx_check_drv(struct vx_platform_data *pd)
 		return;
 	}
 
-	for (i = 0; i < pd->n_cxpc_drv; i++) {
+	drvs = vx_get_drvs_info(log.header.mode.type, pd, &n_drv);
+	if (!drvs || !n_drv) {
+		pr_err("failed to obtain drv info\n");
+		return;
+	}
+
+	for (i = 0; i < n_drv; i++) {
 		for (j = 0; j < log.loglines; j++) {
 			if (log.data[j].drv_vx[i] == 0)
 				break;
 			if (j == log.loglines - 1) {
-				pr_warn("DRV: %s has blocked power collapse\n", pd->cxpc_drvs[i]);
+				pr_warn("DRV: %s has blocked power collapse\n", drvs[i]);
 				trigger_dump(pd);
 			}
 		}

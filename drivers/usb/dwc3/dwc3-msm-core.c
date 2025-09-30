@@ -575,7 +575,8 @@ struct dwc3_msm {
 	bool			use_pwr_event_for_wakeup;
 	bool			host_poweroff_in_pm_suspend;
 	bool			disable_host_ssphy_powerdown;
-	bool			is_ssphy_powerdown;
+	/* tracks if USB3 PHY is powered off */
+	bool			usb3_phy_off;
 	bool			enable_host_slow_suspend;
 	unsigned long		lpm_flags;
 	unsigned int		vbus_draw;
@@ -3811,6 +3812,10 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 		}
 	}
 
+	/* Prepare SSPHY for suspend */
+	dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
+					DWC3_GUSB3PIPECTL_SUSPHY, 1);
+
 	/* Read USB_STS register to get UTMI Suspend status */
 	reg = dwc3_msm_read_reg(mdwc->base, USB_STS_REG);
 
@@ -6972,11 +6977,26 @@ static void dwc3_msm_remove(struct platform_device *pdev)
 	kfree(mdwc->dwc3_pm_ops);
 }
 
+static void dwc3_msm_usb3_phy_poweroff(struct dwc3_msm *mdwc, bool off)
+{
+	if (mdwc->usb3_phy_off == off)
+		return;
+
+	mdwc->usb3_phy_off = off;
+	if (off) {
+		phy_power_off(mdwc->usb3_phy);
+		phy_exit(mdwc->usb3_phy);
+	} else {
+		phy_init(mdwc->usb3_phy);
+		phy_power_on(mdwc->usb3_phy);
+	}
+}
+
 static int dwc3_msm_host_ss_powerdown(struct dwc3_msm *mdwc)
 {
 	u32 reg;
 
-	if (mdwc->is_ssphy_powerdown || mdwc->disable_host_ssphy_powerdown ||
+	if (mdwc->disable_host_ssphy_powerdown ||
 		mdwc->dp_state != DP_NONE || dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
 		return 0;
 
@@ -7001,9 +7021,8 @@ static int dwc3_msm_host_ss_powerdown(struct dwc3_msm *mdwc)
 	 */
 	dwc3_msm_clear_usbphy_flags(mdwc->ss_phy, PHY_SS_DYNAMIC_POWERDOWN);
 
-	phy_power_off(mdwc->usb3_phy);
-	phy_exit(mdwc->usb3_phy);
-	mdwc->is_ssphy_powerdown = true;
+	/* Power down USB3 generic phy */
+	dwc3_msm_usb3_phy_poweroff(mdwc, true);
 
 	return 0;
 }
@@ -7013,22 +7032,28 @@ static int dwc3_msm_host_ss_powerup(struct dwc3_msm *mdwc)
 	u32 reg;
 
 	dbg_log_string("start: speed:%d\n", dwc3_msm_get_max_speed(mdwc));
-	if (!mdwc->is_ssphy_powerdown || !mdwc->in_host_mode ||
-		mdwc->disable_host_ssphy_powerdown ||
-		dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
+	if (!mdwc->in_host_mode || mdwc->disable_host_ssphy_powerdown ||
+	    dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER) {
+		/*
+		 * PHY needs power up even when bailing out early as PHY subsystem
+		 * ops are strictly refcounted and must match phy_exit/phy_power_off
+		 * calls done in dwc3_msm_host_ss_powerdown()
+		 */
+		dwc3_msm_usb3_phy_poweroff(mdwc, false);
 		return 0;
+	}
 
 	usb_phy_set_suspend(mdwc->ss_phy, 0);
 	usb_phy_notify_connect(mdwc->ss_phy,
 					USB_SPEED_SUPER);
-	phy_init(mdwc->usb3_phy);
-	phy_power_on(mdwc->usb3_phy);
+
+	/* Power up USB3 generic phy */
+	dwc3_msm_usb3_phy_poweroff(mdwc, false);
 
 	dwc3_msm_switch_utmi(mdwc, 0);
 	reg = dwc3_msm_read_reg(mdwc->base, EXTRA_INP_REG);
 	reg &= ~EXTRA_INP_SS_DISABLE;
 	dwc3_msm_write_reg(mdwc->base, EXTRA_INP_REG, reg);
-	mdwc->is_ssphy_powerdown = false;
 
 	return 0;
 }

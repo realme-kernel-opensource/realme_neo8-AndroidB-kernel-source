@@ -140,6 +140,7 @@ struct qcom_tzmem_pool *qcom_scm_get_tzmem_pool(void);
 
 #define QCOM_SCM_SVC_PWR			0x09
 #define QCOM_SCM_PWR_IO_DISABLE_PMIC_ARBITER	0x01
+#define QCOM_SCM_PWR_GPIO_TRANSFER_ACCESS	0x0D
 #define QCOM_SCM_SVC_MP				0x0c
 #define QCOM_SCM_MP_RESTORE_SEC_CFG		0x02
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03

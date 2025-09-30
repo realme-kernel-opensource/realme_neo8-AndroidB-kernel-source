@@ -43,6 +43,16 @@ def register_modules(registry):
     )
 
     registry.register(
+        name = "drivers/phy/qualcomm/phy-qcom-snps-eusb2",
+        out = "phy-qcom-snps-eusb2.ko",
+        config = "CONFIG_PHY_QCOM_SNPS_EUSB2",
+        srcs = [
+            # do not sort
+            "drivers/phy/qualcomm/phy-qcom-snps-eusb2.c",
+        ],
+    )
+
+    registry.register(
         name = "drivers/phy/qualcomm/phy-qcom-ufs-qmp-v4-sun",
         out = "phy-qcom-ufs-qmp-v4-sun.ko",
         config = "CONFIG_PHY_QCOM_UFS_V4_SUN",

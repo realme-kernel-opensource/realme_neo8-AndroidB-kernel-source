@@ -3638,7 +3638,7 @@ static int haptics_erase(struct input_dev *dev, int effect_id)
 		/* Update settings to optimize closed-loop brake performance */
 		if (chip->hw_type >= HAP530_HV) {
 			if ((play->pattern_src == DIRECT_PLAY) && chip->config.freq_det_in_play) {
-				rc = haptics_config_zx_wind(chip, 8, 10, true);
+				rc = haptics_config_zx_wind(chip, 8, 10, false);
 				if (rc < 0)
 					dev_err(chip->dev, "config zx wind failed, rc=%d\n", rc);
 			}
@@ -3657,6 +3657,15 @@ static int haptics_erase(struct input_dev *dev, int effect_id)
 			goto restore;
 		}
 	}
+
+	/*
+	 * Disable auto resonance after SPMI playback so that SWR playback can
+	 * benefit from it and won't require disabling it each time before
+	 * triggering SWR playback.
+	 */
+	rc = haptics_enable_autores(chip, false);
+	if (rc < 0)
+		goto restore;
 
 	rc = haptics_enable_hpwr_vreg(chip, false);
 	if (rc < 0)
@@ -4347,7 +4356,7 @@ static int haptics_cl_brake_optimization_config(struct haptics_chip *chip)
 		return 0;
 
 	if ((chip->config.swr_brake.mode == CL_BRAKE) || (chip->config.brake.mode == CL_BRAKE)) {
-		rc = haptics_config_zx_wind(chip, 8, 10, true);
+		rc = haptics_config_zx_wind(chip, 8, 10, false);
 		if (rc < 0)
 			return rc;
 

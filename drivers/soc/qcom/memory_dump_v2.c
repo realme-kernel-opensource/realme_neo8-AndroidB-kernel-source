@@ -1506,7 +1506,7 @@ static int mem_dump_alloc_with_rmem(struct platform_device *pdev,
 	int ret;
 	const struct device_node *node = pdev->dev.of_node;
 	struct reserved_mem *rmem;
-	struct device_node *child_node;
+	struct device_node *child_node, *mem_buf_node;
 	size_t node_size;
 	uint32_t ns_vmids[] = {VMID_HLOS};
 	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
@@ -1563,6 +1563,17 @@ static int mem_dump_alloc_with_rmem(struct platform_device *pdev,
 	free_size = rmem->size - used_size;
 	if (free_size > 0)
 		dynamic_mem_dump_free_rmem(rmem->base + used_size, free_size);
+
+	mem_buf_node = of_find_node_by_path("/soc/qcom,mem-buf");
+	if (!mem_buf_node) {
+		dev_err(&pdev->dev, "mem-buf node not found, using default VMID\n");
+	} else {
+		ret = of_property_read_u32(mem_buf_node, "qcom,vmid", ns_vmids);
+		if (ret)
+			dev_err(&pdev->dev, "Failed to read qcom,vmid using default VMID\n");
+
+		of_node_put(mem_buf_node);
+	}
 
 	ret = qtee_shmbridge_register(phys_addr, used_size, ns_vmids,
 			ns_vm_perms, 1, PERM_READ|PERM_WRITE, &shm_bridge_handle);
@@ -1623,6 +1634,7 @@ static int mem_dump_alloc_with_cma(struct platform_device *pdev,
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
+	struct device_node *mem_buf_node;
 	struct md_region md_entry;
 	size_t total_size;
 	dma_addr_t dma_handle;
@@ -1661,6 +1673,17 @@ static int mem_dump_alloc_with_cma(struct platform_device *pdev,
 	sg_free_table(&mem_dump_sgt);
 
 	memset(dump_vaddr, 0x0, total_size);
+
+	mem_buf_node = of_find_node_by_path("/soc/qcom,mem-buf");
+	if (!mem_buf_node) {
+		dev_err(&pdev->dev, "mem-buf node not found, using default VMID\n");
+	} else {
+		ret = of_property_read_u32(mem_buf_node, "qcom,vmid", ns_vmids);
+		if (ret)
+			dev_err(&pdev->dev, "Failed to read qcom,vmid using default VMID\n");
+		of_node_put(mem_buf_node);
+	}
+
 	ret = qtee_shmbridge_register(phys_addr, total_size, ns_vmids,
 			ns_vm_perms, 1, PERM_READ|PERM_WRITE, &shm_bridge_handle);
 	if (ret) {

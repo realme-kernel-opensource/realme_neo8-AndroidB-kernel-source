@@ -696,6 +696,8 @@ drivers/android/binder/transaction.rs
 drivers/android/binder_alloc.c
 drivers/android/binder_alloc.h
 drivers/android/binder_internal.h
+drivers/android/binder_netlink.c
+drivers/android/binder_netlink.h
 drivers/android/binder_trace.h
 drivers/android/binderfs.c
 drivers/android/dbitmap.h
@@ -784,6 +786,7 @@ drivers/block/zram/backend_lzo.c
 drivers/block/zram/backend_lzo.h
 drivers/block/zram/backend_lzorle.c
 drivers/block/zram/backend_lzorle.h
+drivers/block/zram/backend_zstd.c
 drivers/block/zram/backend_zstd.h
 drivers/block/zram/zcomp.c
 drivers/block/zram/zcomp.h
@@ -1739,6 +1742,7 @@ drivers/spmi/spmi.c
 drivers/staging/android/ashmem.h
 drivers/staging/android/ashmem_range.rs
 drivers/staging/android/ashmem_rust.rs
+drivers/staging/android/ashmem_rust_exports.c
 drivers/staging/android/ashmem_shrinker.rs
 drivers/staging/android/ashmem_toggle.rs
 drivers/staging/android/shmem.rs
@@ -3042,6 +3046,7 @@ include/linux/device-mapper.h
 include/linux/device.h
 include/linux/device/bus.h
 include/linux/device/class.h
+include/linux/device/devres.h
 include/linux/device/driver.h
 include/linux/device_cgroup.h
 include/linux/devpts_fs.h
@@ -4657,6 +4662,8 @@ include/trace/hooks/timer.h
 include/trace/hooks/topology.h
 include/trace/hooks/traps.h
 include/trace/hooks/ufshcd.h
+include/trace/hooks/usb.h
+include/trace/hooks/user.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/vmscan.h
 include/trace/hooks/wqlockup.h
@@ -4708,6 +4715,7 @@ include/uapi/drm/drm_mode.h
 include/uapi/linux/acct.h
 include/uapi/linux/aio_abi.h
 include/uapi/linux/android/binder.h
+include/uapi/linux/android/binder_netlink.h
 include/uapi/linux/android/binderfs.h
 include/uapi/linux/android_fuse.h
 include/uapi/linux/arm_sdei.h
@@ -5810,6 +5818,7 @@ lib/lz4/lz4_decompress.c
 lib/lz4/lz4defs.h
 lib/lz4/lz4hc_compress.c
 lib/lzo/lzo1x_compress.c
+lib/lzo/lzo1x_compress_safe.c
 lib/lzo/lzo1x_decompress_safe.c
 lib/lzo/lzodefs.h
 lib/maple_tree.c
@@ -6786,6 +6795,7 @@ rust/helpers/mm.c
 rust/helpers/mman.c
 rust/helpers/mutex.c
 rust/helpers/page.c
+rust/helpers/pid_namespace.c
 rust/helpers/poll.c
 rust/helpers/rbtree.c
 rust/helpers/refcount.c
@@ -6835,6 +6845,7 @@ rust/kernel/mm/virt.rs
 rust/kernel/net.rs
 rust/kernel/page.rs
 rust/kernel/page_size_compat.rs
+rust/kernel/pid_namespace.rs
 rust/kernel/prelude.rs
 rust/kernel/print.rs
 rust/kernel/rbtree.rs

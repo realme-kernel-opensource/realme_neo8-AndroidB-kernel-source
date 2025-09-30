@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
+config QCOM_RPMCC
+	bool
+
 menuconfig COMMON_CLK_QCOM
 	tristate "Support for Qualcomm's clock controllers"
 	depends on OF
@@ -10,6 +13,19 @@ menuconfig COMMON_CLK_QCOM
 	select INTERCONNECT_CLK
 
 if COMMON_CLK_QCOM
+
+config QCOM_CLK_SMD_RPM
+	tristate "RPM over SMD based Clock Controller"
+	depends on MSM_RPM_SMD
+	select QCOM_RPMCC
+	help
+	  The RPM (Resource Power Manager) is a dedicated hardware engine for
+	  managing the shared SoC resources in order to keep the lowest power
+	  profile. It communicates with other hardware subsystems via shared
+	  memory and accepts clock requests, aggregates the requests and turns
+	  the clocks on/off or scales them on demand.
+	  Say Y if you want to support the clocks exposed by the RPM on
+	  platforms such as apq8016, apq8084, msm8974 etc.
 
 config QCOM_CLK_RPMH
 	tristate "RPMh Clock Driver"
@@ -603,5 +619,88 @@ config CLK_X1E80100_GPUCC
 	  X1E80100 devices.
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
+
+config SC_VIDEOCC_X1P42100
+	tristate "X1P42100 Video Clock Controller"
+	depends on SC_GCC_X1P42100
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  X1P42100 devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config SC_AV1ECC_X1P42100
+	tristate "X1P42100 AV1E Clock Controller"
+	depends on SC_GCC_X1P42100
+	help
+	  Support for the AV1E clock controller on Qualcomm Technologies, Inc.
+	  X1P42100 devices.
+	  Say Y if you want to support AV1 encoder functionality in the kernel.
+	  The AV1E clock controller is responsible for managing clocks related
+	  to the AV1 encoder hardware block, which is used for AV1 video encoding
+	  acceleration.
+
+config SM_GCC_CHORA
+        tristate "CHORA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+        help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  Chora devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C, USB,
+	  SD/UFS, PCIe etc.
+
+config SM_TCSRCC_CHORA
+	tristate "CHORA Top-Level CSR Clock Controller"
+	depends on SM_GCC_CHORA
+	help
+	  Support for the TCSR clock controller on Qualcomm Technologies, Inc
+	  CHORA devices.
+	  Say Y if you want to support miscellaneous top-level clocks
+	  such as for the PHY references.
+
+config SM_GCC_KHAJE
+	tristate "KHAJE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  on KHAJE devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, PCIe, Camera, Video etc.
+
+config SM_DISPCC_KHAJE
+	tristate "KHAJE Display Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the display clock controller on Qualcomm Technologies, Inc.
+	 KHAJE devices.
+	 Say Y if you want to support display devices and functionality such as
+	 splash screen.
+
+config SM_GPUCC_KHAJE
+	tristate "KHAJE Graphics Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  KHAJE devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config SM_LPASS_AUDIOCC_KHAJE
+	tristate "KHAJE Audio Clock Controllers"
+	select SM_GCC_KHAJE
+	help
+	  Support for the LPASS(Low-Power Audio Subsytem) aon & audio clock
+	  controllers on Qualcomm Technologies, Inc KHAJE devices.
+	  Say Y if you want to use LPASS AUDIOCC and AONCC clocks required
+	  to support audio devices and its functionalities.
+
+config SM_DEBUGCC_KHAJE
+	tristate "KHAJE Debug Clock Controller"
+	select SM_GCC_KHAJE
+	help
+	 Support for the debug clock controller on Qualcomm Technologies, Inc
+	 KHAJE devices.
+	 Say Y if you want to support the debug clocks such as
+	 clock measurement functionality.
 
 endif

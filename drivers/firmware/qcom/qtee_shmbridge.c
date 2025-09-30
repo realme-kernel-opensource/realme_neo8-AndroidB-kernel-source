@@ -3,7 +3,7 @@
  * QTI TEE shared memory bridge driver
  *
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define pr_fmt(fmt) "shmbridge: [%d]: " fmt, __LINE__
@@ -18,7 +18,6 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/firmware/qcom/qcom_scm.h>
 #include <linux/dma-mapping.h>
-#include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
 #include <linux/of_platform.h>
 

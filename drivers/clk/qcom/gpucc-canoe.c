@@ -139,15 +139,6 @@ static const struct clk_parent_data gpu_cc_parent_data_1[] = {
 	{ .fw_name = "gpll0_out_main_div" },
 };
 
-static const struct clk_parent_data gpu_cc_parent_data_1_ao[] = {
-	{ .fw_name = "bi_tcxo_ao" },
-	{ .hw = &gpu_cc_pll0.clkr.hw },
-	{ .hw = &gpu_cc_pll0_out_even.clkr.hw },
-	{ .hw = &gpu_cc_pll0.clkr.hw },
-	{ .fw_name = "gpll0_out_main" },
-	{ .fw_name = "gpll0_out_main_div" },
-};
-
 static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(200000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
@@ -208,10 +199,19 @@ static struct clk_rcg2 gpu_cc_hub_clk_src = {
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(const struct clk_init_data) {
 		.name = "gpu_cc_hub_clk_src",
-		.parent_data = gpu_cc_parent_data_1_ao,
-		.num_parents = ARRAY_SIZE(gpu_cc_parent_data_1_ao),
+		.parent_data = gpu_cc_parent_data_1,
+		.num_parents = ARRAY_SIZE(gpu_cc_parent_data_1),
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
+	},
+	.clkr.vdd_data = {
+		.vdd_class = &vdd_cx,
+		.num_rate_max = VDD_NUM,
+		.rate_max = (unsigned long[VDD_NUM]) {
+			[VDD_LOWER_D1] = 150000000,
+			[VDD_LOWER] = 200000000,
+			[VDD_LOW] = 300000000,
+			[VDD_LOW_L1] = 400000000},
 	},
 };
 
@@ -425,6 +425,10 @@ static struct clk_branch gpu_cc_memnoc_gfx_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data) {
 			.name = "gpu_cc_memnoc_gfx_clk",
+			.parent_data = &(const struct clk_parent_data) {
+				.fw_name = "gcc_gpu_gemnoc_gfx_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -623,14 +627,12 @@ static int gpu_cc_canoe_probe(struct platform_device *pdev)
 	 * Keep clocks always enabled:
 	 *	gpu_cc_cb_clk
 	 *	gpu_cc_cxo_aon_clk
-	 *	gx_clkctl_ahb_ff_clk
 	 *	gpu_cc_rscc_hub_aon_clk
 	 *	gpu_cc_rscc_xo_aon_clk
 	 *	gpu_cc_sleep_clk
 	 */
 	regmap_update_bits(regmap, 0x93a4, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x9008, BIT(0), BIT(0));
-	regmap_update_bits(regmap, 0x8060, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x93e8, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x9004, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x90cc, BIT(0), BIT(0));

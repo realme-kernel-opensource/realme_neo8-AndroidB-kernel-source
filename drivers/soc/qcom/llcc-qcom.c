@@ -635,7 +635,7 @@ static const struct llcc_slice_config canoe_data[] = {
 	{LLCC_MDMHPFX,        24, 1024, 5, 1, 0xFFFFFFFF, 0, 0, 0, 0,
 							  0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
 							  0, 0},
-	{LLCC_MDMPNG,         27,  256, 5, 0,    0xFFFFF, 0, 0, 0, 0,
+	{LLCC_MDMPNG,         27,  256, 5, 0, 0xFFFFF000, 0, 0, 0, 0,
 							  0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
 							  0, 0},
 	{LLCC_CVP,             8,  800, 5, 1, 0xFFFFFFFF, 0, 0, 0, 0,
@@ -708,7 +708,7 @@ static const struct llcc_slice_config canoe_data[] = {
 							  0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
 							  0, 0},
 	{LLCC_MDM_PNG_FIXED,  26,  256, 5, 1, 0xFF000000, 0, 0, 0, 0,
-							  0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+							  0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
 							  0, 0},
 };
 

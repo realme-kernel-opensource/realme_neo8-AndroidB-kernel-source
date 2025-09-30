@@ -116,6 +116,15 @@ config ARCH_KHAJE
 	  kernel that runs on this chipset or if you are unsure,
 	  say 'N' here.
 
+config ARCH_MONACO
+	bool "Enable Support for Qualcomm Technologies, Inc. MONACO"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies,
+	  Inc.'s monaco chipset. If you do not wish to build a
+	  kernel that runs on this chipset or if you are unsure,
+	  say 'N' here.
+
 config ARCH_DIREWOLF
 	bool "Enable Support for Qualcomm Technologies, Inc. DIREWOLF"
 	depends on ARCH_QCOM
@@ -159,5 +168,14 @@ config ARM64_PMEM
 	  The feature is detected at runtime, and the kernel will use DC CVAC
 	  operations if DC CVAP is not supported (following the behaviour of
 	  DC CVAP itself if the system does not define a point of persistence).
+
+config ARCH_COLIBRI
+	bool "Enable Support for Qualcomm Technologies, Inc. COLIBRI"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  COLIBRI chipset.
+	  If you do not wish to build a kernel that runs on this
+	  chipset or if you are unsure, say 'N' here.
 
 endmenu # "Platform selection"
