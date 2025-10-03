@@ -696,8 +696,6 @@ drivers/android/binder/transaction.rs
 drivers/android/binder_alloc.c
 drivers/android/binder_alloc.h
 drivers/android/binder_internal.h
-drivers/android/binder_netlink.c
-drivers/android/binder_netlink.h
 drivers/android/binder_trace.h
 drivers/android/binderfs.c
 drivers/android/dbitmap.h
@@ -786,7 +784,6 @@ drivers/block/zram/backend_lzo.c
 drivers/block/zram/backend_lzo.h
 drivers/block/zram/backend_lzorle.c
 drivers/block/zram/backend_lzorle.h
-drivers/block/zram/backend_zstd.c
 drivers/block/zram/backend_zstd.h
 drivers/block/zram/zcomp.c
 drivers/block/zram/zcomp.h
@@ -4715,7 +4712,6 @@ include/uapi/drm/drm_mode.h
 include/uapi/linux/acct.h
 include/uapi/linux/aio_abi.h
 include/uapi/linux/android/binder.h
-include/uapi/linux/android/binder_netlink.h
 include/uapi/linux/android/binderfs.h
 include/uapi/linux/android_fuse.h
 include/uapi/linux/arm_sdei.h
